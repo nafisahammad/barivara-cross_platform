@@ -47,3 +47,5 @@ app.*.map.json
 # Secrets
 lib/secrets.dart
 
+**/build/
+android/build/
