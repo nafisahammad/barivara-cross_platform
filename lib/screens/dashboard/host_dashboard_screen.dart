@@ -5,7 +5,6 @@ import '../../services/auth_service.dart';
 import '../../services/building_service.dart';
 import '../../services/community_service.dart';
 import '../../services/issue_service.dart';
-import '../../services/resident_service.dart';
 
 class HostDashboardScreen extends StatefulWidget {
   const HostDashboardScreen({super.key});

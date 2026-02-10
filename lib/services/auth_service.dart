@@ -2,6 +2,7 @@
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
 import '../models/enums.dart';
@@ -17,10 +18,22 @@ class AuthService {
 
   String? _verificationId;
   ConfirmationResult? _webConfirmation;
+  String? _localUserId;
 
   User? get currentUser => _auth.currentUser;
 
-  String? get currentUserId => _auth.currentUser?.uid;
+  String? get currentUserId => _auth.currentUser?.uid ?? _localUserId;
+
+  Future<void> init() async {
+    final prefs = await SharedPreferences.getInstance();
+    final firebaseUserId = _auth.currentUser?.uid;
+    if (firebaseUserId != null && firebaseUserId.isNotEmpty) {
+      _localUserId = firebaseUserId;
+      await prefs.setString('localUserId', firebaseUserId);
+      return;
+    }
+    _localUserId = prefs.getString('localUserId');
+  }
 
   Future<void> startPhoneSignIn(String phoneNumber) async {
     if (kIsWeb) {
@@ -76,9 +89,9 @@ class AuthService {
   }
 
   Future<AppUser?> getCurrentProfile() async {
-    final user = _auth.currentUser;
-    if (user == null) return null;
-    final snapshot = await _db.users.doc(user.uid).get();
+    final userId = currentUserId;
+    if (userId == null) return null;
+    final snapshot = await _db.users.doc(userId).get();
     if (!snapshot.exists || snapshot.data() == null) return null;
     return AppUser.fromMap(snapshot.id, snapshot.data()!);
   }
@@ -110,32 +123,50 @@ class AuthService {
 
     await _db.users.doc(user.uid).set(profile.toMap());
     await _db.passwords.doc(user.uid).set({'value': password});
+    _localUserId = user.uid;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('localUserId', user.uid);
     return profile;
   }
 
   Future<AppUser> loginProfile({
     required String phone,
+    required String password,
   }) async {
     final profile = await findUserByPhone(phone);
     if (profile == null) {
       throw StateError('No account found for that phone number.');
     }
+    final passwordSnapshot = await _db.passwords.doc(profile.id).get();
+    if (!passwordSnapshot.exists || passwordSnapshot.data() == null) {
+      throw StateError('Password not set for this account.');
+    }
+    final storedPassword = passwordSnapshot.data()!['value']?.toString() ?? '';
+    if (storedPassword != password) {
+      throw StateError('Incorrect password.');
+    }
+    _localUserId = profile.id;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('localUserId', profile.id);
     return profile;
   }
 
   Future<void> updateRole(UserRole role) async {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('No authenticated user.');
-    await _db.users.doc(user.uid).update({'role': role.name});
+    final userId = currentUserId;
+    if (userId == null) throw StateError('No authenticated user.');
+    await _db.users.doc(userId).update({'role': role.name});
   }
 
   Future<void> setBuildingId(String buildingId) async {
-    final user = _auth.currentUser;
-    if (user == null) throw StateError('No authenticated user.');
-    await _db.users.doc(user.uid).update({'buildingId': buildingId});
+    final userId = currentUserId;
+    if (userId == null) throw StateError('No authenticated user.');
+    await _db.users.doc(userId).update({'buildingId': buildingId});
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
+    _localUserId = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('localUserId');
   }
 }

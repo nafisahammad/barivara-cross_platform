@@ -14,6 +14,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _codeController = TextEditingController();
   final _nameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   bool _loading = false;
   bool _codeSent = false;
 
@@ -23,13 +24,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _codeController.dispose();
     _nameController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _sendCode() async {
     setState(() => _loading = true);
     try {
-      await AuthService.instance.startPhoneSignIn(_phoneController.text.trim());
+      final phone = _phoneController.text.trim();
+      if (phone.isEmpty) {
+        throw StateError('Please enter your phone number.');
+      }
+      final existing = await AuthService.instance.findUserByPhone(phone);
+      if (existing != null) {
+        throw StateError('An account already exists for this phone number. Please log in.');
+      }
+      await AuthService.instance.startPhoneSignIn(phone);
       if (!mounted) return;
       setState(() => _codeSent = true);
     } catch (error) {
@@ -45,11 +55,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _verifyAndRegister() async {
     setState(() => _loading = true);
     try {
+      final phone = _phoneController.text.trim();
+      if (phone.isEmpty) {
+        throw StateError('Please enter your phone number.');
+      }
+      final existing = await AuthService.instance.findUserByPhone(phone);
+      if (existing != null) {
+        throw StateError('An account already exists for this phone number. Please log in.');
+      }
+      final password = _passwordController.text;
+      final confirmPassword = _confirmPasswordController.text;
+      if (password.isEmpty || confirmPassword.isEmpty) {
+        throw StateError('Please enter and confirm your password.');
+      }
+      if (password != confirmPassword) {
+        throw StateError('Passwords do not match.');
+      }
       await AuthService.instance.verifySmsCode(_codeController.text.trim());
       await AuthService.instance.registerProfile(
         name: _nameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        password: _passwordController.text,
+        phone: phone,
+        password: password,
       );
       if (!mounted) return;
       Navigator.of(context).pushNamed(AppRoutes.roleSelection);
@@ -93,6 +119,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _passwordController,
                 decoration: const InputDecoration(labelText: 'Security Password'),
+                obscureText: true,
+              ),
+              TextField(
+                controller: _confirmPasswordController,
+                decoration: const InputDecoration(labelText: 'Confirm Password'),
                 obscureText: true,
               ),
               const SizedBox(height: 24),

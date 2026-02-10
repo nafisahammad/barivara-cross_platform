@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 import 'routes.dart';
 import 'theme.dart';
+import 'services/auth_service.dart';
 import 'screens/admin/admin_console_screen.dart';
 import 'screens/community/community_screen.dart';
 import 'screens/dashboard/host_dashboard_screen.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await AuthService.instance.init();
   runApp(const MyApp());
 }
 
