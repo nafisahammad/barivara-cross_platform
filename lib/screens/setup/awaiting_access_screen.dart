@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../routes.dart';
 
 class AwaitingAccessScreen extends StatelessWidget {
@@ -14,7 +14,10 @@ class AwaitingAccessScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Request sent', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+              const Text(
+                'Request sent',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+              ),
               const SizedBox(height: 8),
               const Text('The host will review your request shortly.'),
               const SizedBox(height: 24),
@@ -27,16 +30,27 @@ class AwaitingAccessScreen extends StatelessWidget {
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Status', style: TextStyle(fontWeight: FontWeight.w700)),
+                    Text(
+                      'Status',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
                     SizedBox(height: 8),
-                    Text('Pending approval', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                    Text(
+                      'Pending approval',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const Spacer(),
               FilledButton(
-                onPressed: () => Navigator.of(context).pushNamed(AppRoutes.residentDashboard),
-                child: const Text('Continue'),
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamedAndRemoveUntil(AppRoutes.splash, (route) => false),
+                child: const Text('Refresh Status'),
               ),
             ],
           ),

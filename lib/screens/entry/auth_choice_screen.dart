@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
+
+import '../../models/enums.dart';
 import '../../routes.dart';
 
 class AuthChoiceScreen extends StatelessWidget {
@@ -20,22 +22,40 @@ class AuthChoiceScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               const Text(
-                'The operations cockpit for modern apartment communities.',
+                'Choose your portal. Host and Resident access are separate.',
                 style: TextStyle(fontSize: 16),
               ),
               const Spacer(),
               _HeroCard(
-                title: 'Login',
-                subtitle: 'Pick up where you left off',
-                icon: Icons.lock_open,
-                onTap: () => Navigator.of(context).pushNamed(AppRoutes.login),
+                title: 'Host Portal',
+                subtitle: 'Manage units, revenue, and operations',
+                icon: Icons.apartment,
+                onTap: () => Navigator.of(
+                  context,
+                ).pushNamed(AppRoutes.login, arguments: UserRole.host),
               ),
               const SizedBox(height: 16),
               _HeroCard(
-                title: 'Create Account',
-                subtitle: 'Start a new building workspace',
-                icon: Icons.auto_awesome,
-                onTap: () => Navigator.of(context).pushNamed(AppRoutes.register),
+                title: 'Resident Portal',
+                subtitle: 'Join your building and manage dues',
+                icon: Icons.home,
+                onTap: () => Navigator.of(
+                  context,
+                ).pushNamed(AppRoutes.login, arguments: UserRole.resident),
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamed(AppRoutes.register, arguments: UserRole.host),
+                child: const Text('Create Host Account'),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(
+                  context,
+                ).pushNamed(AppRoutes.register, arguments: UserRole.resident),
+                child: const Text('Create Resident Account'),
               ),
               const SizedBox(height: 24),
             ],
@@ -70,7 +90,11 @@ class _HeroCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(32),
           boxShadow: const [
-            BoxShadow(color: Color(0x14000000), blurRadius: 18, offset: Offset(0, 10)),
+            BoxShadow(
+              color: Color(0x14000000),
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
           ],
         ),
         child: Row(
@@ -85,7 +109,13 @@ class _HeroCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(subtitle, style: const TextStyle(color: Colors.black54)),
                 ],

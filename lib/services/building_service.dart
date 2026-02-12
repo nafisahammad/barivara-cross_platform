@@ -1,5 +1,4 @@
-﻿import 'dart:math';
-
+import 'dart:math';
 
 import '../models/building.dart';
 import '../models/enums.dart';
@@ -35,7 +34,11 @@ class BuildingService {
     final batch = _db.buildings.firestore.batch();
     batch.set(doc, building.toMap());
 
-    final flats = _generateFlats(buildingId: building.id, floors: floors, unitsPerFloor: unitsPerFloor);
+    final flats = _generateFlats(
+      buildingId: building.id,
+      floors: floors,
+      unitsPerFloor: unitsPerFloor,
+    );
     for (final flat in flats) {
       final flatDoc = _db.flats.doc();
       batch.set(flatDoc, flat.copyWith(id: flatDoc.id).toMap());
@@ -46,14 +49,20 @@ class BuildingService {
   }
 
   Future<Building?> findBuildingByInviteCode(String code) async {
-    final query = await _db.buildings.where('inviteCode', isEqualTo: code).limit(1).get();
+    final query = await _db.buildings
+        .where('inviteCode', isEqualTo: code)
+        .limit(1)
+        .get();
     if (query.docs.isEmpty) return null;
     final doc = query.docs.first;
     return Building.fromMap(doc.id, doc.data());
   }
 
   Future<Building?> getBuildingForHost(String hostId) async {
-    final query = await _db.buildings.where('hostId', isEqualTo: hostId).limit(1).get();
+    final query = await _db.buildings
+        .where('hostId', isEqualTo: hostId)
+        .limit(1)
+        .get();
     if (query.docs.isEmpty) return null;
     final doc = query.docs.first;
     return Building.fromMap(doc.id, doc.data());
@@ -65,6 +74,38 @@ class BuildingService {
         .where('status', isEqualTo: FlatStatus.vacant.name)
         .get();
     return query.docs.map((doc) => Flat.fromMap(doc.id, doc.data())).toList();
+  }
+
+  Future<List<Flat>> getFlatsForBuilding(String buildingId) async {
+    final query = await _db.flats
+        .where('buildingId', isEqualTo: buildingId)
+        .get();
+    final flats = query.docs
+        .map((doc) => Flat.fromMap(doc.id, doc.data()))
+        .toList();
+    flats.sort((a, b) => a.flatNumber.compareTo(b.flatNumber));
+    return flats;
+  }
+
+  Future<Flat?> getFlatById(String flatId) async {
+    final snapshot = await _db.flats.doc(flatId).get();
+    if (!snapshot.exists || snapshot.data() == null) return null;
+    return Flat.fromMap(snapshot.id, snapshot.data()!);
+  }
+
+  Future<void> updateFlat({
+    required String flatId,
+    required String flatNumber,
+    required double rentAmount,
+  }) async {
+    await _db.flats.doc(flatId).update({
+      'flatNumber': flatNumber,
+      'rentAmount': rentAmount,
+    });
+  }
+
+  Future<void> deleteFlat(String flatId) async {
+    await _db.flats.doc(flatId).delete();
   }
 
   List<Flat> _generateFlats({
@@ -100,7 +141,10 @@ class BuildingService {
   Future<String> _generateUniqueInviteCode() async {
     for (var attempt = 0; attempt < 5; attempt++) {
       final code = _randomInviteCode();
-      final existing = await _db.buildings.where('inviteCode', isEqualTo: code).limit(1).get();
+      final existing = await _db.buildings
+          .where('inviteCode', isEqualTo: code)
+          .limit(1)
+          .get();
       if (existing.docs.isEmpty) return code;
     }
     return _randomInviteCode();

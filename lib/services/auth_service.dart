@@ -1,7 +1,4 @@
-﻿import 'dart:async';
-
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_user.dart';
@@ -16,8 +13,6 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final DbService _db = DbService.instance;
 
-  String? _verificationId;
-  ConfirmationResult? _webConfirmation;
   String? _localUserId;
 
   User? get currentUser => _auth.currentUser;
@@ -35,59 +30,6 @@ class AuthService {
     _localUserId = prefs.getString('localUserId');
   }
 
-  Future<void> startPhoneSignIn(String phoneNumber) async {
-    if (kIsWeb) {
-      _webConfirmation = await _auth.signInWithPhoneNumber(phoneNumber);
-      return;
-    }
-
-    final completer = Completer<void>();
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (credential) async {
-        await _auth.signInWithCredential(credential);
-        if (!completer.isCompleted) completer.complete();
-      },
-      verificationFailed: (error) {
-        if (!completer.isCompleted) {
-          completer.completeError(error);
-        }
-      },
-      codeSent: (verificationId, _) {
-        _verificationId = verificationId;
-        if (!completer.isCompleted) completer.complete();
-      },
-      codeAutoRetrievalTimeout: (verificationId) {
-        _verificationId = verificationId;
-        if (!completer.isCompleted) completer.complete();
-      },
-    );
-
-    return completer.future;
-  }
-
-  Future<User> verifySmsCode(String smsCode) async {
-    if (kIsWeb) {
-      final confirmation = _webConfirmation;
-      if (confirmation == null) {
-        throw StateError('Start phone sign-in first.');
-      }
-      final credential = await confirmation.confirm(smsCode);
-      return credential.user!;
-    }
-
-    final verificationId = _verificationId;
-    if (verificationId == null) {
-      throw StateError('Start phone sign-in first.');
-    }
-    final credential = PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode,
-    );
-    final result = await _auth.signInWithCredential(credential);
-    return result.user!;
-  }
-
   Future<AppUser?> getCurrentProfile() async {
     final userId = currentUserId;
     if (userId == null) return null;
@@ -96,59 +38,105 @@ class AuthService {
     return AppUser.fromMap(snapshot.id, snapshot.data()!);
   }
 
-  Future<AppUser?> findUserByPhone(String phone) async {
-    final query = await _db.users.where('phone', isEqualTo: phone).limit(1).get();
-    if (query.docs.isEmpty) return null;
-    final doc = query.docs.first;
+  Future<AppUser?> findUserByEmail(String email) async {
+    final query = await _db.users
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+    if (query.docs.isNotEmpty) {
+      final doc = query.docs.first;
+      return AppUser.fromMap(doc.id, doc.data());
+    }
+
+    // Backward compatibility for old profiles stored with 'phone'.
+    final fallback = await _db.users
+        .where('phone', isEqualTo: email)
+        .limit(1)
+        .get();
+    if (fallback.docs.isEmpty) return null;
+    final doc = fallback.docs.first;
     return AppUser.fromMap(doc.id, doc.data());
   }
 
   Future<AppUser> registerProfile({
     required String name,
-    required String phone,
+    required String email,
     required String password,
+    required UserRole role,
   }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('Please verify your phone number first.');
+    final normalizedEmail = email.trim().toLowerCase();
+    final existing = await findUserByEmail(normalizedEmail);
+    if (existing != null) {
+      throw StateError(
+        'An account already exists for this email. Please log in.',
+      );
     }
 
-    final profile = AppUser(
-      id: user.uid,
-      name: name,
-      phone: phone,
-      role: UserRole.resident,
-      buildingId: null,
-    );
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw StateError('Unable to create account. Please try again.');
+      }
 
-    await _db.users.doc(user.uid).set(profile.toMap());
-    await _db.passwords.doc(user.uid).set({'value': password});
-    _localUserId = user.uid;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('localUserId', user.uid);
-    return profile;
+      final profile = AppUser(
+        id: user.uid,
+        name: name,
+        email: normalizedEmail,
+        role: role,
+        buildingId: null,
+      );
+
+      await _db.users.doc(user.uid).set(profile.toMap());
+      _localUserId = user.uid;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('localUserId', user.uid);
+      return profile;
+    } on FirebaseAuthException catch (error) {
+      throw StateError(_mapFirebaseAuthError(error));
+    }
   }
 
   Future<AppUser> loginProfile({
-    required String phone,
+    required String email,
     required String password,
+    UserRole? expectedRole,
   }) async {
-    final profile = await findUserByPhone(phone);
-    if (profile == null) {
-      throw StateError('No account found for that phone number.');
+    final normalizedEmail = email.trim().toLowerCase();
+    try {
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: normalizedEmail,
+        password: password,
+      );
+      final user = credential.user;
+      if (user == null) {
+        throw StateError('Login failed. Please try again.');
+      }
+
+      final snapshot = await _db.users.doc(user.uid).get();
+      if (!snapshot.exists || snapshot.data() == null) {
+        await _auth.signOut();
+        throw StateError('Profile not found for this account.');
+      }
+
+      final profile = AppUser.fromMap(snapshot.id, snapshot.data()!);
+      if (expectedRole != null && profile.role != expectedRole) {
+        await _auth.signOut();
+        throw StateError(
+          'This account belongs to the ${profile.role.name} portal.',
+        );
+      }
+
+      _localUserId = profile.id;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('localUserId', profile.id);
+      return profile;
+    } on FirebaseAuthException catch (error) {
+      throw StateError(_mapFirebaseAuthError(error));
     }
-    final passwordSnapshot = await _db.passwords.doc(profile.id).get();
-    if (!passwordSnapshot.exists || passwordSnapshot.data() == null) {
-      throw StateError('Password not set for this account.');
-    }
-    final storedPassword = passwordSnapshot.data()!['value']?.toString() ?? '';
-    if (storedPassword != password) {
-      throw StateError('Incorrect password.');
-    }
-    _localUserId = profile.id;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('localUserId', profile.id);
-    return profile;
   }
 
   Future<void> updateRole(UserRole role) async {
@@ -168,5 +156,25 @@ class AuthService {
     _localUserId = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('localUserId');
+  }
+
+  String _mapFirebaseAuthError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'email-already-in-use':
+        return 'An account already exists for this email. Please log in.';
+      case 'weak-password':
+        return 'Password is too weak. Use at least 6 characters.';
+      case 'user-not-found':
+        return 'No account found for that email.';
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Incorrect email or password.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return error.message ?? 'Authentication failed. Please try again.';
+    }
   }
 }

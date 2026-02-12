@@ -1,4 +1,4 @@
-﻿import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/enums.dart';
 import '../models/issue.dart';
@@ -16,7 +16,11 @@ class IssueService {
         .where('buildingId', isEqualTo: buildingId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Issue.fromMap(doc.id, doc.data())).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Issue.fromMap(doc.id, doc.data()))
+              .toList(),
+        );
   }
 
   Stream<List<Issue>> streamIssuesForResident(String userId) {
@@ -24,7 +28,23 @@ class IssueService {
         .where('residentId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => Issue.fromMap(doc.id, doc.data())).toList());
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Issue.fromMap(doc.id, doc.data()))
+              .toList(),
+        );
+  }
+
+  Stream<List<Issue>> streamIssuesForFlat(String flatId) {
+    return _db.issues
+        .where('flatId', isEqualTo: flatId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Issue.fromMap(doc.id, doc.data()))
+              .toList(),
+        );
   }
 
   Future<void> createIssue({
