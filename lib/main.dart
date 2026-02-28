@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'routes.dart';
 import 'theme.dart';
 import 'services/auth_service.dart';
+import 'services/push_notification_service.dart';
 import 'screens/admin/admin_console_screen.dart';
 import 'screens/community/community_screen.dart';
 import 'screens/dashboard/host_dashboard_screen.dart';
@@ -26,6 +27,7 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await AuthService.instance.init();
+  await PushNotificationService.instance.init();
   runApp(const MyApp());
 }
 

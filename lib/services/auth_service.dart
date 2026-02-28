@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_user.dart';
 import '../models/enums.dart';
 import 'db_service.dart';
+import 'push_notification_service.dart';
 
 class AuthService {
   AuthService._();
@@ -94,6 +95,7 @@ class AuthService {
       _localUserId = user.uid;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('localUserId', user.uid);
+      await PushNotificationService.instance.bindUser(user.uid);
       return profile;
     } on FirebaseAuthException catch (error) {
       throw StateError(_mapFirebaseAuthError(error));
@@ -133,6 +135,7 @@ class AuthService {
       _localUserId = profile.id;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('localUserId', profile.id);
+      await PushNotificationService.instance.bindUser(profile.id);
       return profile;
     } on FirebaseAuthException catch (error) {
       throw StateError(_mapFirebaseAuthError(error));
@@ -156,6 +159,7 @@ class AuthService {
     _localUserId = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('localUserId');
+    await PushNotificationService.instance.clearUser();
   }
 
   String _mapFirebaseAuthError(FirebaseAuthException error) {

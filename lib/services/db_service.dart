@@ -18,4 +18,5 @@ class DbService {
   CollectionReference<Map<String, dynamic>> get notices => _db.collection('notices');
   CollectionReference<Map<String, dynamic>> get contacts => _db.collection('contacts');
   CollectionReference<Map<String, dynamic>> get notifications => _db.collection('notifications');
+  CollectionReference<Map<String, dynamic>> get pushNotifications => _db.collection('push_notifications');
 }

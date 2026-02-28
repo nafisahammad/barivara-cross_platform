@@ -5,6 +5,7 @@ import '../models/enums.dart';
 import '../models/flat.dart';
 import '../models/resident_link.dart';
 import 'db_service.dart';
+import 'notification_service.dart';
 
 class ResidentService {
   ResidentService._();
@@ -12,6 +13,7 @@ class ResidentService {
   static final ResidentService instance = ResidentService._();
 
   final DbService _db = DbService.instance;
+  final NotificationService _notifications = NotificationService.instance;
 
   Future<ResidentLink> requestAccess({
     required String userId,
@@ -41,13 +43,16 @@ class ResidentService {
     if (hostId != null && hostId.isNotEmpty) {
       final residentName = userData?['name']?.toString() ?? 'A resident';
       final flatNumber = flatData?['flatNumber']?.toString() ?? flatId;
-      await _db.notifications.add({
-        'userId': hostId,
-        'title': 'New access request',
-        'body': '$residentName requested access for unit $flatNumber.',
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      await _notifications.createNotification(
+        userId: hostId,
+        title: 'New access request',
+        body: '$residentName requested access for unit $flatNumber.',
+        data: {
+          'type': 'access_request',
+          'flatId': flatId,
+          'residentId': userId,
+        },
+      );
     }
 
     return link;
@@ -137,24 +142,22 @@ class ResidentService {
     });
     await _db.users.doc(link.userId).update({'buildingId': link.buildingId});
 
-    await _db.notifications.add({
-      'userId': link.userId,
-      'title': 'Access approved',
-      'body': 'Your building access request has been approved.',
-      'read': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    await _notifications.createNotification(
+      userId: link.userId,
+      title: 'Access approved',
+      body: 'Your building access request has been approved.',
+      data: {'type': 'access_approved', 'buildingId': link.buildingId},
+    );
   }
 
   Future<void> declineAccessRequest(ResidentLink link) async {
     await _db.residents.doc(link.id).delete();
-    await _db.notifications.add({
-      'userId': link.userId,
-      'title': 'Access declined',
-      'body': 'Your building access request was declined by host.',
-      'read': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    await _notifications.createNotification(
+      userId: link.userId,
+      title: 'Access declined',
+      body: 'Your building access request was declined by host.',
+      data: {'type': 'access_declined', 'buildingId': link.buildingId},
+    );
   }
 
   Future<void> evictAndReleaseUnit({required String flatId}) async {
@@ -165,16 +168,18 @@ class ResidentService {
     if (link != null) {
       batch.delete(_db.residents.doc(link.id));
       batch.update(_db.users.doc(link.userId), {'buildingId': null});
-      batch.set(_db.notifications.doc(), {
-        'userId': link.userId,
-        'title': 'Unit access removed',
-        'body': 'Your access has been revoked for this unit.',
-        'read': false,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
     }
 
     await batch.commit();
+
+    if (link != null) {
+      await _notifications.createNotification(
+        userId: link.userId,
+        title: 'Unit access removed',
+        body: 'Your access has been revoked for this unit.',
+        data: {'type': 'access_revoked', 'flatId': link.flatId},
+      );
+    }
   }
 }
 

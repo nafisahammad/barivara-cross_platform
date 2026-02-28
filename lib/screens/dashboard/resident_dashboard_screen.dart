@@ -4,6 +4,7 @@ import '../../models/community_message.dart';
 import '../../models/enums.dart';
 import '../../models/flat.dart';
 import '../../models/issue.dart';
+import '../../models/issue_templates.dart';
 import '../../models/resident_link.dart';
 import '../../routes.dart';
 import '../../services/auth_service.dart';
@@ -209,6 +210,16 @@ class _ResidentServiceTab extends StatefulWidget {
 }
 
 class _ResidentServiceTabState extends State<_ResidentServiceTab> {
+  final _searchController = TextEditingController();
+  IssuePriority? _priorityFilter;
+  IssueStatus? _statusFilter;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<String?> _resolveUserId() async {
     return AuthService.instance.currentUserId;
   }
@@ -219,9 +230,10 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
     String flatId,
     String userId,
   ) async {
-    final categoryController = TextEditingController();
     final descriptionController = TextEditingController();
+    final attachmentsController = TextEditingController();
     IssuePriority priority = IssuePriority.medium;
+    String category = kIssueCategories.first;
 
     final created = await showDialog<bool>(
       context: context,
@@ -233,13 +245,35 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextField(
-                    controller: categoryController,
+                  DropdownButtonFormField<String>(
+                    initialValue: category,
                     decoration: const InputDecoration(labelText: 'Category'),
+                    items: kIssueCategories
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(value),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setDialogState(() => category = value);
+                    },
                   ),
                   TextField(
                     controller: descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      helperText: kIssueCategoryHints[category],
+                    ),
+                  ),
+                  TextField(
+                    controller: attachmentsController,
+                    decoration: const InputDecoration(
+                      labelText: 'Attachment links (optional)',
+                      helperText: 'Paste URLs separated by commas or new lines.',
+                    ),
                   ),
                   const SizedBox(height: 12),
                   DropdownButton<IssuePriority>(
@@ -276,21 +310,26 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
     );
 
     if (created != true) return;
-    if (categoryController.text.trim().isEmpty ||
-        descriptionController.text.trim().isEmpty) {
+    if (category.trim().isEmpty || descriptionController.text.trim().isEmpty) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Category and description are required.')),
       );
       return;
     }
+    final attachments = attachmentsController.text
+        .split(RegExp(r'[\n,]'))
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
     await IssueService.instance.createIssue(
       residentId: userId,
       buildingId: buildingId,
       flatId: flatId,
-      category: categoryController.text.trim(),
+      category: category.trim(),
       description: descriptionController.text.trim(),
       priority: priority,
+      attachments: attachments,
     );
   }
 
@@ -328,7 +367,8 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
                         return const Center(child: CircularProgressIndicator());
                       }
                       final issues = stream.data ?? const <Issue>[];
-                      if (issues.isEmpty) {
+                      final filtered = _filterIssues(issues);
+                      if (filtered.isEmpty) {
                         return const Center(child: Text('No tickets yet.'));
                       }
                       return ListView(
@@ -342,10 +382,23 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          ...issues.map((issue) {
-                            return _InfoTile(
-                              title: issue.category,
-                              subtitle: issue.status.name,
+                          _SearchAndFilterBar(
+                            searchController: _searchController,
+                            priority: _priorityFilter,
+                            status: _statusFilter,
+                            onSearchChanged: (_) => setState(() {}),
+                            onPriorityChanged: (value) {
+                              setState(() => _priorityFilter = value);
+                            },
+                            onStatusChanged: (value) {
+                              setState(() => _statusFilter = value);
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          ...filtered.map((issue) {
+                            return _IssueTile(
+                              issue: issue,
+                              showAssignee: true,
                             );
                           }),
                         ],
@@ -374,6 +427,22 @@ class _ResidentServiceTabState extends State<_ResidentServiceTab> {
         );
       },
     );
+  }
+
+  List<Issue> _filterIssues(List<Issue> issues) {
+    final query = _searchController.text.trim().toLowerCase();
+    return issues.where((issue) {
+      if (_priorityFilter != null && issue.priority != _priorityFilter) {
+        return false;
+      }
+      if (_statusFilter != null && issue.status != _statusFilter) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      final haystack =
+          '${issue.category} ${issue.description} ${issue.status.name}'.toLowerCase();
+      return haystack.contains(query);
+    }).toList();
   }
 }
 
@@ -656,6 +725,148 @@ class _InfoTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SearchAndFilterBar extends StatelessWidget {
+  const _SearchAndFilterBar({
+    required this.searchController,
+    required this.priority,
+    required this.status,
+    required this.onSearchChanged,
+    required this.onPriorityChanged,
+    required this.onStatusChanged,
+  });
+
+  final TextEditingController searchController;
+  final IssuePriority? priority;
+  final IssueStatus? status;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<IssuePriority?> onPriorityChanged;
+  final ValueChanged<IssueStatus?> onStatusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TextField(
+          controller: searchController,
+          onChanged: onSearchChanged,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search tickets...',
+            filled: true,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            DropdownButton<IssuePriority?>(
+              value: priority,
+              hint: const Text('Priority'),
+              onChanged: onPriorityChanged,
+              items: [
+                const DropdownMenuItem<IssuePriority?>(
+                  value: null,
+                  child: Text('All priorities'),
+                ),
+                ...IssuePriority.values.map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(value.name),
+                  ),
+                ),
+              ],
+            ),
+            DropdownButton<IssueStatus?>(
+              value: status,
+              hint: const Text('Status'),
+              onChanged: onStatusChanged,
+              items: [
+                const DropdownMenuItem<IssueStatus?>(
+                  value: null,
+                  child: Text('All statuses'),
+                ),
+                ...IssueStatus.values.map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(value.name),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _IssueTile extends StatelessWidget {
+  const _IssueTile({required this.issue, this.showAssignee = false});
+
+  final Issue issue;
+  final bool showAssignee;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = <String>[
+      'Status: ${issue.status.name}',
+      'Priority: ${issue.priority.name}',
+      if (issue.assigneeName != null && issue.assigneeName!.isNotEmpty)
+        'Assigned: ${issue.assigneeName}',
+      _slaLabel(issue),
+    ].where((value) => value.isNotEmpty).join(' • ');
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(issue.category, style: const TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text(issue.description),
+          const SizedBox(height: 8),
+          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          if (issue.attachments.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Attachments: ${issue.attachments.length}',
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _slaLabel(Issue issue) {
+  final due = issue.slaDueAt;
+  if (due == null) return '';
+  final now = DateTime.now();
+  final diff = due.difference(now);
+  if (diff.isNegative) {
+    final overdue = diff.abs();
+    return 'Overdue by ${_formatDuration(overdue)}';
+  }
+  return 'SLA ${_formatDuration(diff)} left';
+}
+
+String _formatDuration(Duration value) {
+  if (value.inDays >= 1) {
+    return '${value.inDays}d';
+  }
+  if (value.inHours >= 1) {
+    return '${value.inHours}h';
+  }
+  return '${value.inMinutes}m';
 }
 
 class _SettingsTile extends StatelessWidget {

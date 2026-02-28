@@ -378,8 +378,23 @@ class _HostAssetsData {
   const _HostAssetsData({required this.flats, required this.pendingRequests});
 }
 
-class _HostServiceDeskTab extends StatelessWidget {
+class _HostServiceDeskTab extends StatefulWidget {
   const _HostServiceDeskTab();
+
+  @override
+  State<_HostServiceDeskTab> createState() => _HostServiceDeskTabState();
+}
+
+class _HostServiceDeskTabState extends State<_HostServiceDeskTab> {
+  final _searchController = TextEditingController();
+  IssuePriority? _priorityFilter;
+  IssueStatus? _statusFilter;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<String?> _resolveBuildingId() async {
     final profile = await AuthService.instance.getCurrentProfile();
@@ -393,6 +408,160 @@ class _HostServiceDeskTab extends StatelessWidget {
       profile.id,
     );
     return building?.id;
+  }
+
+  Future<_IssueMeta> _loadIssueMeta(Issue issue) async {
+    final flat = await BuildingService.instance.getFlatById(issue.flatId);
+    final resident = await ResidentService.instance.getApprovedResidentForFlat(
+      issue.flatId,
+    );
+    return _IssueMeta(
+      flatNumber: flat?.flatNumber ?? issue.flatId,
+      residentName: resident?.user.name,
+      residentEmail: resident?.user.email,
+    );
+  }
+
+  Future<void> _assignIssue(BuildContext context, Issue issue) async {
+    final nameController = TextEditingController(text: issue.assigneeName ?? '');
+    final phoneController = TextEditingController(
+      text: issue.assigneePhone ?? '',
+    );
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Assign ticket'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Assignee name'),
+              ),
+              TextField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Assignee phone (optional)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Assign'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    final name = nameController.text.trim();
+    if (name.isEmpty) return;
+    await IssueService.instance.assignIssue(
+      issueId: issue.id,
+      assigneeName: name,
+      assigneePhone: phoneController.text.trim().isEmpty
+          ? null
+          : phoneController.text.trim(),
+    );
+  }
+
+  Widget _buildIssueTile(BuildContext context, Issue issue) {
+    return FutureBuilder<_IssueMeta>(
+      future: _loadIssueMeta(issue),
+      builder: (context, snapshot) {
+        final meta = snapshot.data;
+        final flatLabel = meta?.flatNumber ?? issue.flatId;
+        final residentLabel = meta?.residentName ?? 'Resident';
+        final subtitle = [
+          residentLabel,
+          'Flat $flatLabel',
+          issue.priority.name,
+          if (issue.assigneeName != null && issue.assigneeName!.isNotEmpty)
+            'Assigned: ${issue.assigneeName}',
+          if (issue.attachments.isNotEmpty)
+            'Attachments: ${issue.attachments.length}',
+        ].where((item) => item.isNotEmpty).join(' • ');
+        return _IssueCard(
+          title: issue.category,
+          subtitle: subtitle,
+          status: issue.status,
+          priority: issue.priority,
+          trailing: PopupMenuButton<_IssueAction>(
+            onSelected: (action) {
+              switch (action) {
+                case _IssueAction.assign:
+                  _assignIssue(context, issue);
+                  break;
+                case _IssueAction.inProgress:
+                  IssueService.instance.updateStatus(
+                    issue.id,
+                    IssueStatus.inProgress,
+                  );
+                  break;
+                case _IssueAction.resolve:
+                  IssueService.instance.updateStatus(
+                    issue.id,
+                    IssueStatus.resolved,
+                  );
+                  break;
+                case _IssueAction.close:
+                  IssueService.instance.updateStatus(
+                    issue.id,
+                    IssueStatus.closed,
+                  );
+                  break;
+                case _IssueAction.reopen:
+                  IssueService.instance.updateStatus(
+                    issue.id,
+                    IssueStatus.open,
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              return [
+                const PopupMenuItem(
+                  value: _IssueAction.assign,
+                  child: Text('Assign'),
+                ),
+                if (issue.status != IssueStatus.inProgress &&
+                    issue.status != IssueStatus.resolved &&
+                    issue.status != IssueStatus.closed)
+                  const PopupMenuItem(
+                    value: _IssueAction.inProgress,
+                    child: Text('Mark in progress'),
+                  ),
+                if (issue.status != IssueStatus.resolved)
+                  const PopupMenuItem(
+                    value: _IssueAction.resolve,
+                    child: Text('Resolve'),
+                  ),
+                if (issue.status != IssueStatus.closed)
+                  const PopupMenuItem(
+                    value: _IssueAction.close,
+                    child: Text('Close'),
+                  ),
+                if (issue.status == IssueStatus.resolved ||
+                    issue.status == IssueStatus.closed)
+                  const PopupMenuItem(
+                    value: _IssueAction.reopen,
+                    child: Text('Reopen'),
+                  ),
+              ];
+            },
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -413,30 +582,63 @@ class _HostServiceDeskTab extends StatelessWidget {
             if (stream.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            final issues = stream.data ?? const <Issue>[];
-            if (issues.isEmpty) {
+            final issues = _filterIssues(stream.data ?? const <Issue>[]);
+            final activeIssues = issues
+                .where(
+                  (issue) =>
+                      issue.status == IssueStatus.open ||
+                      issue.status == IssueStatus.inProgress,
+                )
+                .toList();
+            final solvedIssues = issues
+                .where(
+                  (issue) =>
+                      issue.status == IssueStatus.resolved ||
+                      issue.status == IssueStatus.closed,
+                )
+                .toList();
+            if (activeIssues.isEmpty && solvedIssues.isEmpty) {
               return const Center(child: Text('No tickets yet.'));
             }
             return ListView(
               padding: const EdgeInsets.all(24),
               children: [
-                const _SectionHeader(title: 'Service Desk'),
+                _SearchAndFilterBar(
+                  searchController: _searchController,
+                  priority: _priorityFilter,
+                  status: _statusFilter,
+                  onSearchChanged: (_) => setState(() {}),
+                  onPriorityChanged: (value) {
+                    setState(() => _priorityFilter = value);
+                  },
+                  onStatusChanged: (value) {
+                    setState(() => _statusFilter = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _SectionHeader(
+                  title: 'Active Tickets (${activeIssues.length})',
+                ),
                 const SizedBox(height: 12),
-                ...issues.map((issue) {
-                  return _InfoTile(
-                    title: issue.category,
-                    subtitle: 'Flat ${issue.flatId} - ${issue.status.name}',
-                    trailing: issue.status == IssueStatus.open
-                        ? TextButton(
-                            onPressed: () => IssueService.instance.updateStatus(
-                              issue.id,
-                              IssueStatus.resolved,
-                            ),
-                            child: const Text('Resolve'),
-                          )
-                        : null,
-                  );
-                }),
+                if (activeIssues.isEmpty)
+                  const _InfoTile(
+                    title: 'All clear',
+                    subtitle: 'No active tickets right now.',
+                  )
+                else
+                  ...activeIssues.map((issue) => _buildIssueTile(context, issue)),
+                const SizedBox(height: 20),
+                _SectionHeader(
+                  title: 'Solved Tickets (${solvedIssues.length})',
+                ),
+                const SizedBox(height: 12),
+                if (solvedIssues.isEmpty)
+                  const _InfoTile(
+                    title: 'Nothing solved yet',
+                    subtitle: 'Resolved tickets will show up here.',
+                  )
+                else
+                  ...solvedIssues.map((issue) => _buildIssueTile(context, issue)),
               ],
             );
           },
@@ -444,7 +646,37 @@ class _HostServiceDeskTab extends StatelessWidget {
       },
     );
   }
+
+  List<Issue> _filterIssues(List<Issue> issues) {
+    final query = _searchController.text.trim().toLowerCase();
+    return issues.where((issue) {
+      if (_priorityFilter != null && issue.priority != _priorityFilter) {
+        return false;
+      }
+      if (_statusFilter != null && issue.status != _statusFilter) {
+        return false;
+      }
+      if (query.isEmpty) return true;
+      final haystack =
+          '${issue.category} ${issue.description} ${issue.status.name}'.toLowerCase();
+      return haystack.contains(query);
+    }).toList();
+  }
 }
+
+class _IssueMeta {
+  final String flatNumber;
+  final String? residentName;
+  final String? residentEmail;
+
+  const _IssueMeta({
+    required this.flatNumber,
+    this.residentName,
+    this.residentEmail,
+  });
+}
+
+enum _IssueAction { assign, inProgress, resolve, close, reopen }
 
 class _HostCommunityTab extends StatefulWidget {
   const _HostCommunityTab();
@@ -456,6 +688,7 @@ class _HostCommunityTab extends StatefulWidget {
 class _HostCommunityTabState extends State<_HostCommunityTab> {
   final _controller = TextEditingController();
   bool _isSending = false;
+  final List<_PendingMessage> _pending = [];
 
   @override
   void dispose() {
@@ -487,7 +720,18 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
     if (text.isEmpty) {
       return;
     }
-    setState(() => _isSending = true);
+    final pendingMessage = _PendingMessage(
+      localId: DateTime.now().microsecondsSinceEpoch.toString(),
+      userId: profile.id,
+      userName: profile.name,
+      flatNumber: 'MGMT',
+      content: text,
+      createdAt: DateTime.now(),
+    );
+    setState(() {
+      _isSending = true;
+      _pending.add(pendingMessage);
+    });
     try {
       await CommunityService.instance.sendMessage(
         buildingId: buildingId,
@@ -500,6 +744,7 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
       _controller.clear();
     } catch (error) {
       if (!mounted) return;
+      setState(() => _pending.removeWhere((item) => item.localId == pendingMessage.localId));
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Message send failed: $error')));
@@ -537,16 +782,15 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                 child: StreamBuilder<List<CommunityMessage>>(
                   stream: CommunityService.instance.streamMessages(buildingId),
                   builder: (context, stream) {
-                    if (stream.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
                     if (stream.hasError) {
                       return Center(
                         child: Text('Unable to load messages: ${stream.error}'),
                       );
                     }
                     final messages = stream.data ?? const <CommunityMessage>[];
-                    if (messages.isEmpty) {
+                    _reconcilePending(messages, _pending);
+                    final combined = _combineMessages(messages, _pending);
+                    if (combined.isEmpty) {
                       return const Center(
                         child: Text('No messages yet. Start the group chat.'),
                       );
@@ -557,14 +801,14 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                         horizontal: 14,
                         vertical: 16,
                       ),
-                      itemCount: messages.length,
+                      itemCount: combined.length,
                       itemBuilder: (context, index) {
-                        final message = messages[index];
+                        final message = combined[index];
                         final isMine =
                             currentUserId != null &&
                             message.userId == currentUserId;
-                        final olderMessage = index + 1 < messages.length
-                            ? messages[index + 1]
+                        final olderMessage = index + 1 < combined.length
+                            ? combined[index + 1]
                             : null;
                         final showHeader =
                             olderMessage == null ||
@@ -577,6 +821,7 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                           isMine: isMine,
                           isManagement: message.flatNumber == 'MGMT',
                           showHeader: showHeader,
+                          isPending: message.isPending,
                         );
                       },
                     );
@@ -628,16 +873,7 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                         backgroundColor: const Color(0xFF0A3DFF),
                         shape: const CircleBorder(),
                       ),
-                      child: _isSending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.send_rounded),
+                      child: const Icon(Icons.send_rounded),
                     ),
                   ],
                 ),
@@ -750,6 +986,82 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
+class _SearchAndFilterBar extends StatelessWidget {
+  const _SearchAndFilterBar({
+    required this.searchController,
+    required this.priority,
+    required this.status,
+    required this.onSearchChanged,
+    required this.onPriorityChanged,
+    required this.onStatusChanged,
+  });
+
+  final TextEditingController searchController;
+  final IssuePriority? priority;
+  final IssueStatus? status;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<IssuePriority?> onPriorityChanged;
+  final ValueChanged<IssueStatus?> onStatusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TextField(
+          controller: searchController,
+          onChanged: onSearchChanged,
+          decoration: const InputDecoration(
+            prefixIcon: Icon(Icons.search),
+            hintText: 'Search tickets...',
+            filled: true,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            DropdownButton<IssuePriority?>(
+              value: priority,
+              hint: const Text('Priority'),
+              onChanged: onPriorityChanged,
+              items: [
+                const DropdownMenuItem<IssuePriority?>(
+                  value: null,
+                  child: Text('All priorities'),
+                ),
+                ...IssuePriority.values.map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(value.name),
+                  ),
+                ),
+              ],
+            ),
+            DropdownButton<IssueStatus?>(
+              value: status,
+              hint: const Text('Status'),
+              onChanged: onStatusChanged,
+              items: [
+                const DropdownMenuItem<IssueStatus?>(
+                  value: null,
+                  child: Text('All statuses'),
+                ),
+                ...IssueStatus.values.map(
+                  (value) => DropdownMenuItem(
+                    value: value,
+                    child: Text(value.name),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _InfoTile extends StatelessWidget {
   const _InfoTile({required this.title, required this.subtitle, this.trailing});
 
@@ -787,6 +1099,130 @@ class _InfoTile extends StatelessWidget {
     );
   }
 }
+
+class _IssueCard extends StatelessWidget {
+  const _IssueCard({
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.priority,
+    this.trailing,
+  });
+
+  final String title;
+  final String subtitle;
+  final IssueStatus status;
+  final IssuePriority priority;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = status.name.toUpperCase();
+    final statusColor = _statusColor(status);
+    final priorityColor = _priorityColor(priority);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFF9FBFF), Color(0xFFF1F5FF)],
+        ),
+        border: Border.all(color: const Color(0xFFDDE6FF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              _TagChip(
+                label: statusLabel,
+                color: statusColor,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _TagChip(
+                label: priority.name.toUpperCase(),
+                color: priorityColor,
+              ),
+              const Spacer(),
+              trailing ?? const SizedBox.shrink(),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TagChip extends StatelessWidget {
+  const _TagChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.35)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+Color _statusColor(IssueStatus status) {
+  switch (status) {
+    case IssueStatus.open:
+      return const Color(0xFFDC2626);
+    case IssueStatus.inProgress:
+      return const Color(0xFF2563EB);
+    case IssueStatus.resolved:
+      return const Color(0xFF16A34A);
+    case IssueStatus.closed:
+      return const Color(0xFF6B7280);
+  }
+}
+
+Color _priorityColor(IssuePriority priority) {
+  switch (priority) {
+    case IssuePriority.low:
+      return const Color(0xFF0EA5E9);
+    case IssuePriority.medium:
+      return const Color(0xFFF59E0B);
+    case IssuePriority.high:
+      return const Color(0xFFEF4444);
+    case IssuePriority.urgent:
+      return const Color(0xFF7C3AED);
+  }
+}
+
 
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
@@ -847,6 +1283,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isMine,
     required this.isManagement,
     required this.showHeader,
+    required this.isPending,
   });
 
   final String author;
@@ -856,6 +1293,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isMine;
   final bool isManagement;
   final bool showHeader;
+  final bool isPending;
 
   @override
   Widget build(BuildContext context) {
@@ -911,12 +1349,25 @@ class _MessageBubble extends StatelessWidget {
                   children: [
                     Text(message),
                     const SizedBox(height: 4),
-                    Text(
-                      _formatMessageTime(createdAt),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.black54,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _formatMessageTime(createdAt),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        if (isMine) ...[
+                          const SizedBox(width: 6),
+                          Icon(
+                            isPending ? Icons.schedule : Icons.check,
+                            size: 12,
+                            color: Colors.black54,
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -927,6 +1378,104 @@ class _MessageBubble extends StatelessWidget {
       ],
     );
   }
+}
+
+class _PendingMessage {
+  final String localId;
+  final String userId;
+  final String userName;
+  final String flatNumber;
+  final String content;
+  final DateTime createdAt;
+
+  const _PendingMessage({
+    required this.localId,
+    required this.userId,
+    required this.userName,
+    required this.flatNumber,
+    required this.content,
+    required this.createdAt,
+  });
+}
+
+class _ChatMessage {
+  final String id;
+  final String userId;
+  final String userName;
+  final String flatNumber;
+  final String content;
+  final DateTime? createdAt;
+  final bool isPending;
+
+  const _ChatMessage({
+    required this.id,
+    required this.userId,
+    required this.userName,
+    required this.flatNumber,
+    required this.content,
+    required this.createdAt,
+    required this.isPending,
+  });
+}
+
+void _reconcilePending(
+  List<CommunityMessage> messages,
+  List<_PendingMessage> pending,
+) {
+  if (pending.isEmpty) return;
+  final toRemove = <String>{};
+  for (final candidate in pending) {
+    final match = messages.any((message) {
+      if (message.userId != candidate.userId) return false;
+      if (message.content != candidate.content) return false;
+      if (message.flatNumber != candidate.flatNumber) return false;
+      final createdAt = message.createdAt;
+      if (createdAt == null) return false;
+      final diff = createdAt.difference(candidate.createdAt).inSeconds.abs();
+      return diff <= 90;
+    });
+    if (match) {
+      toRemove.add(candidate.localId);
+    }
+  }
+  if (toRemove.isEmpty) return;
+  pending.removeWhere((item) => toRemove.contains(item.localId));
+}
+
+List<_ChatMessage> _combineMessages(
+  List<CommunityMessage> messages,
+  List<_PendingMessage> pending,
+) {
+  final combined = <_ChatMessage>[
+    ...messages.map(
+      (message) => _ChatMessage(
+        id: message.id,
+        userId: message.userId,
+        userName: message.userName,
+        flatNumber: message.flatNumber,
+        content: message.content,
+        createdAt: message.createdAt,
+        isPending: false,
+      ),
+    ),
+    ...pending.map(
+      (message) => _ChatMessage(
+        id: message.localId,
+        userId: message.userId,
+        userName: message.userName,
+        flatNumber: message.flatNumber,
+        content: message.content,
+        createdAt: message.createdAt,
+        isPending: true,
+      ),
+    ),
+  ];
+  combined.sort((a, b) {
+    final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return bDate.compareTo(aDate);
+  });
+  return combined;
 }
 
 String _formatMessageTime(DateTime? value) {

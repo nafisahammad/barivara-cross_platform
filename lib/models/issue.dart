@@ -11,6 +11,12 @@ class Issue {
   final IssuePriority priority;
   final IssueStatus status;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
+  final DateTime? resolvedAt;
+  final DateTime? slaDueAt;
+  final String? assigneeName;
+  final String? assigneePhone;
+  final List<String> attachments;
 
   const Issue({
     required this.id,
@@ -22,9 +28,24 @@ class Issue {
     required this.priority,
     required this.status,
     this.createdAt,
+    this.updatedAt,
+    this.resolvedAt,
+    this.slaDueAt,
+    this.assigneeName,
+    this.assigneePhone,
+    this.attachments = const [],
   });
 
   factory Issue.fromMap(String id, Map<String, dynamic> data) {
+    final rawAttachments = data['attachments'];
+    final attachments = rawAttachments is Iterable
+        ? rawAttachments
+            .map((item) => item?.toString())
+            .whereType<String>()
+            .toList()
+        : const <String>[];
+    final rawPriority = data['priority']?.toString();
+    final rawStatus = data['status']?.toString();
     return Issue(
       id: id,
       residentId: (data['residentId'] ?? '') as String,
@@ -32,9 +53,15 @@ class Issue {
       flatId: (data['flatId'] ?? '') as String,
       category: (data['category'] ?? '') as String,
       description: (data['description'] ?? '') as String,
-      priority: IssuePriority.values.byName((data['priority'] ?? 'low') as String),
-      status: IssueStatus.values.byName((data['status'] ?? 'open') as String),
+      priority: _parsePriority(rawPriority),
+      status: _parseStatus(rawStatus),
       createdAt: parseDateTime(data['createdAt']),
+      updatedAt: parseDateTime(data['updatedAt']),
+      resolvedAt: parseDateTime(data['resolvedAt']),
+      slaDueAt: parseDateTime(data['slaDueAt']),
+      assigneeName: data['assigneeName'] as String?,
+      assigneePhone: data['assigneePhone'] as String?,
+      attachments: attachments,
     );
   }
 
@@ -48,6 +75,28 @@ class Issue {
       'priority': priority.name,
       'status': status.name,
       'createdAt': toTimestamp(createdAt),
+      'updatedAt': toTimestamp(updatedAt),
+      'resolvedAt': toTimestamp(resolvedAt),
+      'slaDueAt': toTimestamp(slaDueAt),
+      'assigneeName': assigneeName,
+      'assigneePhone': assigneePhone,
+      'attachments': attachments,
     };
   }
+}
+
+IssuePriority _parsePriority(String? value) {
+  if (value == null || value.isEmpty) return IssuePriority.low;
+  return IssuePriority.values.firstWhere(
+    (item) => item.name == value,
+    orElse: () => IssuePriority.low,
+  );
+}
+
+IssueStatus _parseStatus(String? value) {
+  if (value == null || value.isEmpty) return IssueStatus.open;
+  return IssueStatus.values.firstWhere(
+    (item) => item.name == value,
+    orElse: () => IssueStatus.open,
+  );
 }
