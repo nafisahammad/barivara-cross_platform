@@ -665,6 +665,30 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
 class _ResidentSettingsTab extends StatelessWidget {
   const _ResidentSettingsTab();
 
+  void _showPlaceholder(
+    BuildContext context, {
+    required String title,
+    String? message,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(
+            message ?? 'This setting will be available in a future update.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _logout(BuildContext context) async {
     await AuthService.instance.signOut();
     if (!context.mounted) return;
@@ -684,10 +708,93 @@ class _ResidentSettingsTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _SettingsTile(
-          title: 'Profile & Security',
-          subtitle: 'Password, vacate, help',
+          title: 'Profile Details',
+          subtitle: 'Name, phone, unit info',
           icon: Icons.person_outline,
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+        ),
+        _SettingsTile(
+          title: 'Notification Preferences',
+          subtitle: 'Tickets, payments, announcements',
+          icon: Icons.notifications_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Notification Preferences',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Privacy & Security',
+          subtitle: 'Change password, sign out of all',
+          icon: Icons.lock_outline,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Privacy & Security',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Language & Region',
+          subtitle: 'Locale, currency, time format',
+          icon: Icons.language_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Language & Region',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Payment Methods',
+          subtitle: 'Add or update payment methods',
+          icon: Icons.credit_card_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Payment Methods',
+            message: 'Payment method management is coming soon.',
+          ),
+        ),
+        _SettingsTile(
+          title: 'App Appearance',
+          subtitle: 'Theme, text size, layout density',
+          icon: Icons.palette_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'App Appearance',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Support',
+          subtitle: 'Help center, contact admin',
+          icon: Icons.support_agent_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Support',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Data Export',
+          subtitle: 'Download receipts or ticket history',
+          icon: Icons.download_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Data Export',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Emergency Contacts',
+          subtitle: 'Update emergency contact list',
+          icon: Icons.contact_phone_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Emergency Contacts',
+          ),
+        ),
+        _SettingsTile(
+          title: 'App Info',
+          subtitle: 'Version, terms, privacy policy',
+          icon: Icons.info_outline,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'App Info',
+            message: 'Barivara resident app. Version details coming soon.',
+          ),
         ),
         _SettingsTile(
           title: 'Logout',

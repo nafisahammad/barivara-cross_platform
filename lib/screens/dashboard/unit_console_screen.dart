@@ -575,7 +575,6 @@ class _MaintenanceTab extends StatelessWidget {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-
             final issues = (snapshot.data ?? const <Issue>[])
                 .where((issue) => issue.residentId == residentId)
                 .toList();
@@ -690,5 +689,13 @@ class _StatusChip extends StatelessWidget {
 }
 
 String _currency(double value) => 'Rs ${value.toStringAsFixed(0)}';
+
+String _issueStreamErrorText(Object? error) {
+  final message = error?.toString().toLowerCase() ?? '';
+  if (message.contains('requires an index')) {
+    return 'Tickets are temporarily unavailable while an index is being prepared. Please try again in a few minutes.';
+  }
+  return 'Unable to load tickets. Please try again.';
+}
 
 enum _UnitSettingAction { edit, delete }

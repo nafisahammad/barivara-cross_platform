@@ -143,15 +143,22 @@ class _HostHomeTab extends StatelessWidget {
                         subtitle: 'No open service tickets',
                       )
                     else
-                      ...openIssues
-                          .take(4)
-                          .map(
-                            (issue) => _InfoTile(
+                      ...openIssues.take(4).map(
+                        (issue) => FutureBuilder<Flat?>(
+                          future: BuildingService.instance.getFlatById(
+                            issue.flatId,
+                          ),
+                          builder: (context, flatSnapshot) {
+                            final flatNumber =
+                                flatSnapshot.data?.flatNumber ?? issue.flatId;
+                            return _InfoTile(
                               title: issue.category,
                               subtitle:
-                                  'Flat ${issue.flatId} - ${issue.priority.name}',
-                            ),
-                          ),
+                                  'Flat $flatNumber - ${issue.priority.name}',
+                            );
+                          },
+                        ),
+                      ),
                     const SizedBox(height: 16),
                     const _SectionHeader(title: 'Invite Code'),
                     const SizedBox(height: 8),
@@ -576,73 +583,77 @@ class _HostServiceDeskTabState extends State<_HostServiceDeskTab> {
         if (buildingId == null) {
           return const Center(child: Text('No building found yet.'));
         }
-        return StreamBuilder<List<Issue>>(
-          stream: IssueService.instance.streamIssuesForBuilding(buildingId),
-          builder: (context, stream) {
-            if (stream.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final issues = _filterIssues(stream.data ?? const <Issue>[]);
-            final activeIssues = issues
-                .where(
-                  (issue) =>
-                      issue.status == IssueStatus.open ||
-                      issue.status == IssueStatus.inProgress,
-                )
-                .toList();
-            final solvedIssues = issues
-                .where(
-                  (issue) =>
-                      issue.status == IssueStatus.resolved ||
-                      issue.status == IssueStatus.closed,
-                )
-                .toList();
-            if (activeIssues.isEmpty && solvedIssues.isEmpty) {
-              return const Center(child: Text('No tickets yet.'));
-            }
-            return ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                _SearchAndFilterBar(
-                  searchController: _searchController,
-                  priority: _priorityFilter,
-                  status: _statusFilter,
-                  onSearchChanged: (_) => setState(() {}),
-                  onPriorityChanged: (value) {
-                    setState(() => _priorityFilter = value);
-                  },
-                  onStatusChanged: (value) {
-                    setState(() => _statusFilter = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                _SectionHeader(
-                  title: 'Active Tickets (${activeIssues.length})',
-                ),
-                const SizedBox(height: 12),
-                if (activeIssues.isEmpty)
-                  const _InfoTile(
-                    title: 'All clear',
-                    subtitle: 'No active tickets right now.',
+          return StreamBuilder<List<Issue>>(
+            stream: IssueService.instance.streamIssuesForBuilding(buildingId),
+            builder: (context, stream) {
+              if (stream.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final issues = _filterIssues(stream.data ?? const <Issue>[]);
+              final activeIssues = issues
+                  .where(
+                    (issue) =>
+                        issue.status == IssueStatus.open ||
+                        issue.status == IssueStatus.inProgress,
                   )
-                else
-                  ...activeIssues.map((issue) => _buildIssueTile(context, issue)),
-                const SizedBox(height: 20),
-                _SectionHeader(
-                  title: 'Solved Tickets (${solvedIssues.length})',
-                ),
-                const SizedBox(height: 12),
-                if (solvedIssues.isEmpty)
-                  const _InfoTile(
-                    title: 'Nothing solved yet',
-                    subtitle: 'Resolved tickets will show up here.',
+                  .toList();
+              final solvedIssues = issues
+                  .where(
+                    (issue) =>
+                        issue.status == IssueStatus.resolved ||
+                        issue.status == IssueStatus.closed,
                   )
-                else
-                  ...solvedIssues.map((issue) => _buildIssueTile(context, issue)),
-              ],
-            );
-          },
-        );
+                  .toList();
+              if (activeIssues.isEmpty && solvedIssues.isEmpty) {
+                return const Center(child: Text('No tickets yet.'));
+              }
+              return ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  _SearchAndFilterBar(
+                    searchController: _searchController,
+                    priority: _priorityFilter,
+                    status: _statusFilter,
+                    onSearchChanged: (_) => setState(() {}),
+                    onPriorityChanged: (value) {
+                      setState(() => _priorityFilter = value);
+                    },
+                    onStatusChanged: (value) {
+                      setState(() => _statusFilter = value);
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  _SectionHeader(
+                    title: 'Active Tickets (${activeIssues.length})',
+                  ),
+                  const SizedBox(height: 12),
+                  if (activeIssues.isEmpty)
+                    const _InfoTile(
+                      title: 'All clear',
+                      subtitle: 'No active tickets right now.',
+                    )
+                  else
+                    ...activeIssues.map(
+                      (issue) => _buildIssueTile(context, issue),
+                    ),
+                  const SizedBox(height: 20),
+                  _SectionHeader(
+                    title: 'Solved Tickets (${solvedIssues.length})',
+                  ),
+                  const SizedBox(height: 12),
+                  if (solvedIssues.isEmpty)
+                    const _InfoTile(
+                      title: 'Nothing solved yet',
+                      subtitle: 'Resolved tickets will show up here.',
+                    )
+                  else
+                    ...solvedIssues.map(
+                      (issue) => _buildIssueTile(context, issue),
+                    ),
+                ],
+              );
+            },
+          );
       },
     );
   }
@@ -889,6 +900,30 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
 class _HostSettingsTab extends StatelessWidget {
   const _HostSettingsTab();
 
+  void _showPlaceholder(
+    BuildContext context, {
+    required String title,
+    String? message,
+  }) {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(
+            message ?? 'This setting will be available in a future update.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _logout(BuildContext context) async {
     await AuthService.instance.signOut();
     if (!context.mounted) return;
@@ -908,10 +943,93 @@ class _HostSettingsTab extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         _SettingsTile(
-          title: 'Profile & Security',
-          subtitle: 'Password, vacate, admin',
+          title: 'Profile Details',
+          subtitle: 'Name, phone, building info',
           icon: Icons.person_outline,
           onTap: () => Navigator.of(context).pushNamed(AppRoutes.profile),
+        ),
+        _SettingsTile(
+          title: 'Notification Preferences',
+          subtitle: 'Tickets, payments, announcements',
+          icon: Icons.notifications_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Notification Preferences',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Privacy & Security',
+          subtitle: 'Change password, sign out of all',
+          icon: Icons.lock_outline,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Privacy & Security',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Language & Region',
+          subtitle: 'Locale, currency, time format',
+          icon: Icons.language_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Language & Region',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Payment Methods',
+          subtitle: 'Add or update payment methods',
+          icon: Icons.credit_card_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Payment Methods',
+            message: 'Payment method management is coming soon.',
+          ),
+        ),
+        _SettingsTile(
+          title: 'App Appearance',
+          subtitle: 'Theme, text size, layout density',
+          icon: Icons.palette_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'App Appearance',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Support',
+          subtitle: 'Help center, contact admin',
+          icon: Icons.support_agent_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Support',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Data Export',
+          subtitle: 'Download receipts or ticket history',
+          icon: Icons.download_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Data Export',
+          ),
+        ),
+        _SettingsTile(
+          title: 'Emergency Contacts',
+          subtitle: 'Update emergency contact list',
+          icon: Icons.contact_phone_outlined,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'Emergency Contacts',
+          ),
+        ),
+        _SettingsTile(
+          title: 'App Info',
+          subtitle: 'Version, terms, privacy policy',
+          icon: Icons.info_outline,
+          onTap: () => _showPlaceholder(
+            context,
+            title: 'App Info',
+            message: 'Barivara host app. Version details coming soon.',
+          ),
         ),
         _SettingsTile(
           title: 'Admin Console',
@@ -1487,3 +1605,11 @@ String _formatMessageTime(DateTime? value) {
 }
 
 String _currency(double value) => 'Rs ${value.toStringAsFixed(0)}';
+
+String _issueStreamErrorText(Object? error) {
+  final message = error?.toString().toLowerCase() ?? '';
+  if (message.contains('requires an index')) {
+    return 'Tickets are temporarily unavailable while an index is being prepared. Please try again in a few minutes.';
+  }
+  return 'Unable to load tickets. Please try again.';
+}
