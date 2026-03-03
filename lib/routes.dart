@@ -14,5 +14,6 @@
   static const community = '/community';
   static const notifications = '/notifications';
   static const profile = '/profile';
+  static const privacySecurity = '/privacy-security';
   static const adminConsole = '/admin-console';
 }

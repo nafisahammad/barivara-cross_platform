@@ -162,6 +162,30 @@ class AuthService {
     await PushNotificationService.instance.clearUser();
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('No authenticated user.');
+    }
+    final email = user.email;
+    if (email == null || email.isEmpty) {
+      throw StateError('Email not available for this account.');
+    }
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (error) {
+      throw StateError(_mapFirebaseAuthError(error));
+    }
+  }
+
   String _mapFirebaseAuthError(FirebaseAuthException error) {
     switch (error.code) {
       case 'invalid-email':
@@ -175,6 +199,8 @@ class AuthService {
       case 'wrong-password':
       case 'invalid-credential':
         return 'Incorrect email or password.';
+      case 'requires-recent-login':
+        return 'Please log in again and retry this action.';
       case 'too-many-requests':
         return 'Too many attempts. Please try again later.';
       default:

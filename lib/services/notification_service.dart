@@ -45,4 +45,21 @@ class NotificationService {
               .toList(),
         );
   }
+
+  Future<void> markRead(String notificationId) async {
+    await _db.notifications.doc(notificationId).update({'read': true});
+  }
+
+  Future<void> markAllReadForUser(String userId) async {
+    final snapshot = await _db.notifications
+        .where('userId', isEqualTo: userId)
+        .where('read', isEqualTo: false)
+        .get();
+    if (snapshot.docs.isEmpty) return;
+    final batch = _db.notifications.firestore.batch();
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, {'read': true});
+    }
+    await batch.commit();
+  }
 }

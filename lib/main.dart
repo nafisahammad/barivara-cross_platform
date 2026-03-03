@@ -10,6 +10,7 @@ import 'screens/admin/admin_console_screen.dart';
 import 'screens/community/community_screen.dart';
 import 'screens/dashboard/host_dashboard_screen.dart';
 import 'screens/dashboard/notifications_screen.dart';
+import 'screens/dashboard/privacy_security_screen.dart';
 import 'screens/dashboard/profile_screen.dart';
 import 'screens/dashboard/resident_dashboard_screen.dart';
 import 'screens/entry/auth_choice_screen.dart';
@@ -54,6 +55,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.community: (_) => const CommunityScreen(),
         AppRoutes.notifications: (_) => const NotificationsScreen(),
         AppRoutes.profile: (_) => const ProfileScreen(),
+        AppRoutes.privacySecurity: (_) => const PrivacySecurityScreen(),
         AppRoutes.adminConsole: (_) => const AdminConsoleScreen(),
       },
     );

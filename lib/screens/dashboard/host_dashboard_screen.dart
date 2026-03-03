@@ -959,12 +959,10 @@ class _HostSettingsTab extends StatelessWidget {
         ),
         _SettingsTile(
           title: 'Privacy & Security',
-          subtitle: 'Change password, sign out of all',
+          subtitle: 'Change password, manage sessions',
           icon: Icons.lock_outline,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Privacy & Security',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.privacySecurity),
         ),
         _SettingsTile(
           title: 'Language & Region',

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import 'db_service.dart';
 
@@ -18,6 +19,10 @@ class PushNotificationService {
   String? _token;
 
   Future<void> init() async {
+    // Firebase Messaging on web needs extra setup (service worker + VAPID key).
+    // Skip initialization on web so the app can start.
+    if (kIsWeb) return;
+
     await _messaging.requestPermission();
     FirebaseMessaging.onBackgroundMessage(
       _firebaseMessagingBackgroundHandler,
