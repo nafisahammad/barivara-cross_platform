@@ -31,6 +31,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Select Role')),
       body: SafeArea(
@@ -50,7 +51,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 title: 'Host',
                 subtitle: 'Manage units, revenue, and tickets',
                 icon: Icons.apartment,
-                color: const Color(0xFF0A3DFF),
+                color: scheme.primary,
                 onTap: _loading ? null : () => _selectRole(UserRole.host, AppRoutes.hostSetup),
               ),
               const SizedBox(height: 16),
@@ -58,7 +59,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen> {
                 title: 'Resident',
                 subtitle: 'Pay dues and request support',
                 icon: Icons.home,
-                color: const Color(0xFF0B0E14),
+                color: scheme.secondary,
                 onTap: _loading ? null : () => _selectRole(UserRole.resident, AppRoutes.residentJoin),
               ),
               if (_loading)
@@ -91,6 +92,7 @@ class _RoleTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(36),
@@ -98,7 +100,7 @@ class _RoleTile extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(36),
-          color: Colors.white,
+          color: scheme.surface,
           boxShadow: const [
             BoxShadow(color: Color(0x11000000), blurRadius: 16, offset: Offset(0, 10)),
           ],
@@ -121,7 +123,7 @@ class _RoleTile extends StatelessWidget {
                 children: [
                   Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                  Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
                 ],
               ),
             ),

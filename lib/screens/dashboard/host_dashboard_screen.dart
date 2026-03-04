@@ -320,6 +320,7 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
                   ),
                   itemCount: flats.length,
                   itemBuilder: (context, index) {
+                    final scheme = Theme.of(context).colorScheme;
                     final flat = flats[index];
                     final isOccupied = flat.status == FlatStatus.occupied;
                     return InkWell(
@@ -329,8 +330,8 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(28),
                           color: isOccupied
-                              ? const Color(0xFFE6F4FF)
-                              : const Color(0xFFFFF4E6),
+                              ? scheme.primaryContainer
+                              : scheme.tertiaryContainer,
                         ),
                         padding: const EdgeInsets.all(16),
                         child: Column(
@@ -781,16 +782,12 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
         final currentUserId = AuthService.instance.currentUserId;
         return Column(
           children: [
-            Expanded(
-              child: DecoratedBox(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFEAF2FF), Color(0xFFF7FAFF)],
-                  ),
-                ),
-                child: StreamBuilder<List<CommunityMessage>>(
+                Expanded(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
+                    ),
+                    child: StreamBuilder<List<CommunityMessage>>(
                   stream: CommunityService.instance.streamMessages(buildingId),
                   builder: (context, stream) {
                     if (stream.hasError) {
@@ -844,9 +841,13 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
               top: false,
               child: Container(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  border: Border(top: BorderSide(color: Color(0xFFE5EAF3))),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  border: Border(
+                    top: BorderSide(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -858,32 +859,34 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                         maxLines: 4,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _sendMessage(buildingId),
-                        decoration: InputDecoration(
-                          hintText: 'Message group...',
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
+                          decoration: InputDecoration(
+                            hintText: 'Message group...',
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            filled: true,
+                            fillColor:
+                                Theme.of(context).colorScheme.surfaceVariant,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(24),
+                              borderSide: BorderSide.none,
+                            ),
                           ),
-                          filled: true,
-                          fillColor: const Color(0xFFF2F6FF),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    FilledButton(
-                      onPressed: _isSending
-                          ? null
-                          : () => _sendMessage(buildingId),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(52, 52),
-                        padding: EdgeInsets.zero,
-                        backgroundColor: const Color(0xFF0A3DFF),
-                        shape: const CircleBorder(),
-                      ),
+                      FilledButton(
+                        onPressed: _isSending
+                            ? null
+                            : () => _sendMessage(buildingId),
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(52, 52),
+                          padding: EdgeInsets.zero,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          shape: const CircleBorder(),
+                        ),
                       child: const Icon(Icons.send_rounded),
                     ),
                   ],
@@ -952,10 +955,8 @@ class _HostSettingsTab extends StatelessWidget {
           title: 'Notification Preferences',
           subtitle: 'Tickets, payments, announcements',
           icon: Icons.notifications_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Notification Preferences',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.notificationPreferences),
         ),
         _SettingsTile(
           title: 'Privacy & Security',
@@ -968,10 +969,8 @@ class _HostSettingsTab extends StatelessWidget {
           title: 'Language & Region',
           subtitle: 'Locale, currency, time format',
           icon: Icons.language_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Language & Region',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.languageRegion),
         ),
         _SettingsTile(
           title: 'Payment Methods',
@@ -987,47 +986,33 @@ class _HostSettingsTab extends StatelessWidget {
           title: 'App Appearance',
           subtitle: 'Theme, text size, layout density',
           icon: Icons.palette_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'App Appearance',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.appAppearance),
         ),
         _SettingsTile(
           title: 'Support',
           subtitle: 'Help center, contact admin',
           icon: Icons.support_agent_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Support',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.support),
         ),
         _SettingsTile(
           title: 'Data Export',
           subtitle: 'Download receipts or ticket history',
           icon: Icons.download_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Data Export',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.dataExport),
         ),
         _SettingsTile(
           title: 'Emergency Contacts',
           subtitle: 'Update emergency contact list',
           icon: Icons.contact_phone_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Emergency Contacts',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.emergencyContacts),
         ),
         _SettingsTile(
           title: 'App Info',
           subtitle: 'Version, terms, privacy policy',
           icon: Icons.info_outline,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'App Info',
-            message: 'Barivara host app. Version details coming soon.',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.appInfo),
         ),
         _SettingsTile(
           title: 'Admin Console',
@@ -1187,12 +1172,13 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
       ),
       child: Row(
         children: [
@@ -1205,7 +1191,7 @@ class _InfoTile extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 4),
-                Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
               ],
             ),
           ),
@@ -1236,16 +1222,15 @@ class _IssueCard extends StatelessWidget {
     final statusLabel = status.name.toUpperCase();
     final statusColor = _statusColor(status);
     final priorityColor = _priorityColor(priority);
+    final scheme = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF9FBFF), Color(0xFFF1F5FF)],
-        ),
-        border: Border.all(color: const Color(0xFFDDE6FF)),
+        color: scheme.surface,
+        border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1268,7 +1253,7 @@ class _IssueCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -1355,6 +1340,7 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -1363,11 +1349,11 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: Colors.white,
+          color: scheme.surface,
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF0A3DFF)),
+            Icon(icon, color: scheme.primary),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1378,7 +1364,7 @@ class _SettingsTile extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                  Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
                 ],
               ),
             ),
@@ -1413,10 +1399,9 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final headerColor = isManagement
-        ? const Color(0xFF0A3DFF)
-        : const Color(0xFF1F2937);
-    final bubbleColor = isMine ? const Color(0xFFDCEBFF) : Colors.white;
+    final scheme = Theme.of(context).colorScheme;
+    final headerColor = isManagement ? scheme.primary : scheme.onSurface;
+    final bubbleColor = isMine ? scheme.primaryContainer : scheme.surface;
     final align = isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(18),
@@ -1458,7 +1443,7 @@ class _MessageBubble extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: bubbleColor,
                   borderRadius: radius,
-                  border: Border.all(color: const Color(0xFFD7DFEC)),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Column(
                   crossAxisAlignment: align,
@@ -1470,9 +1455,9 @@ class _MessageBubble extends StatelessWidget {
                       children: [
                         Text(
                           _formatMessageTime(createdAt),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 11,
-                            color: Colors.black54,
+                            color: scheme.onSurfaceVariant,
                           ),
                         ),
                         if (isMine) ...[
@@ -1480,7 +1465,7 @@ class _MessageBubble extends StatelessWidget {
                           Icon(
                             isPending ? Icons.schedule : Icons.check,
                             size: 12,
-                            color: Colors.black54,
+                            color: scheme.onSurfaceVariant,
                           ),
                         ],
                       ],

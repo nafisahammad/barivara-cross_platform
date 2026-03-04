@@ -6,6 +6,7 @@ class AwaitingAccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Awaiting Access')),
       body: SafeArea(
@@ -25,7 +26,7 @@ class AwaitingAccessScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(28),
-                  color: Colors.white,
+                  color: scheme.surface,
                 ),
                 child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

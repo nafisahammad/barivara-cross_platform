@@ -232,11 +232,12 @@ class _SecurityTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
       ),
       child: ListTile(
         leading: Icon(icon),
@@ -258,19 +259,20 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
         ],
       ),
     );

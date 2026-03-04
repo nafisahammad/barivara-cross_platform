@@ -15,5 +15,12 @@
   static const notifications = '/notifications';
   static const profile = '/profile';
   static const privacySecurity = '/privacy-security';
+  static const notificationPreferences = '/notification-preferences';
+  static const languageRegion = '/language-region';
+  static const appAppearance = '/app-appearance';
+  static const support = '/support';
+  static const dataExport = '/data-export';
+  static const emergencyContacts = '/emergency-contacts';
+  static const appInfo = '/app-info';
   static const adminConsole = '/admin-console';
 }

@@ -430,11 +430,13 @@ class _ResidentTab extends StatelessWidget {
               ],
             ),
             if (resident != null && phone == null)
-              const Padding(
+              Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
                   'Contact number not found in profile.',
-                  style: TextStyle(color: Colors.black54),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             const SizedBox(height: 20),
@@ -494,7 +496,7 @@ class _LedgerTab extends StatelessWidget {
             return Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -510,7 +512,10 @@ class _LedgerTab extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           '${_currency(item.amount)} | $dateLabel',
-                          style: const TextStyle(color: Colors.black54),
+                          style: TextStyle(
+                            color:
+                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ],
                     ),
@@ -595,7 +600,7 @@ class _MaintenanceTab extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
@@ -610,7 +615,10 @@ class _MaintenanceTab extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Priority: ${issue.priority.name} | Status: ${issue.status.name} | $dateLabel',
-                        style: const TextStyle(color: Colors.black54),
+                        style: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
                   ),
@@ -637,7 +645,7 @@ class _DataCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -645,7 +653,12 @@ class _DataCard extends StatelessWidget {
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
         ],
       ),
     );
@@ -660,19 +673,24 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     late final Color background;
+    late final Color foreground;
     late final String label;
+    final scheme = Theme.of(context).colorScheme;
 
     switch (status) {
       case PaymentStatus.confirmed:
-        background = const Color(0xFFDCFCE7);
+        background = scheme.secondaryContainer;
+        foreground = scheme.onSecondaryContainer;
         label = 'Confirmed';
         break;
       case PaymentStatus.pendingApproval:
-        background = const Color(0xFFE0E7FF);
+        background = scheme.primaryContainer;
+        foreground = scheme.onPrimaryContainer;
         label = 'Pending';
         break;
       case PaymentStatus.due:
-        background = const Color(0xFFFEE2E2);
+        background = scheme.errorContainer;
+        foreground = scheme.onErrorContainer;
         label = 'Due';
         break;
     }
@@ -683,7 +701,7 @@ class _StatusChip extends StatelessWidget {
         color: background,
         borderRadius: BorderRadius.circular(20),
       ),
-      child: Text(label),
+      child: Text(label, style: TextStyle(color: foreground)),
     );
   }
 }

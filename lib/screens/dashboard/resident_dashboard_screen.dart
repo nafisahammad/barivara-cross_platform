@@ -524,12 +524,8 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
               children: [
                 Expanded(
                   child: DecoratedBox(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFEAF2FF), Color(0xFFF7FAFF)],
-                      ),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceVariant,
                     ),
                     child: StreamBuilder<List<CommunityMessage>>(
                       stream: CommunityService.instance.streamMessages(
@@ -594,9 +590,13 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
                   top: false,
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Color(0xFFE5EAF3))),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      border: Border(
+                        top: BorderSide(
+                          color: Theme.of(context).colorScheme.outlineVariant,
+                        ),
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -616,7 +616,8 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
                                 vertical: 12,
                               ),
                               filled: true,
-                              fillColor: const Color(0xFFF2F6FF),
+                              fillColor:
+                                  Theme.of(context).colorScheme.surfaceVariant,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
                                 borderSide: BorderSide.none,
@@ -635,7 +636,8 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
                           style: FilledButton.styleFrom(
                             minimumSize: const Size(52, 52),
                             padding: EdgeInsets.zero,
-                            backgroundColor: const Color(0xFF0A3DFF),
+                            backgroundColor:
+                                Theme.of(context).colorScheme.primary,
                             shape: const CircleBorder(),
                           ),
                           child: _isSending
@@ -717,10 +719,8 @@ class _ResidentSettingsTab extends StatelessWidget {
           title: 'Notification Preferences',
           subtitle: 'Tickets, payments, announcements',
           icon: Icons.notifications_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Notification Preferences',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.notificationPreferences),
         ),
         _SettingsTile(
           title: 'Privacy & Security',
@@ -733,10 +733,8 @@ class _ResidentSettingsTab extends StatelessWidget {
           title: 'Language & Region',
           subtitle: 'Locale, currency, time format',
           icon: Icons.language_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Language & Region',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.languageRegion),
         ),
         _SettingsTile(
           title: 'Payment Methods',
@@ -752,47 +750,33 @@ class _ResidentSettingsTab extends StatelessWidget {
           title: 'App Appearance',
           subtitle: 'Theme, text size, layout density',
           icon: Icons.palette_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'App Appearance',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.appAppearance),
         ),
         _SettingsTile(
           title: 'Support',
           subtitle: 'Help center, contact admin',
           icon: Icons.support_agent_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Support',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.support),
         ),
         _SettingsTile(
           title: 'Data Export',
           subtitle: 'Download receipts or ticket history',
           icon: Icons.download_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Data Export',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.dataExport),
         ),
         _SettingsTile(
           title: 'Emergency Contacts',
           subtitle: 'Update emergency contact list',
           icon: Icons.contact_phone_outlined,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'Emergency Contacts',
-          ),
+          onTap: () =>
+              Navigator.of(context).pushNamed(AppRoutes.emergencyContacts),
         ),
         _SettingsTile(
           title: 'App Info',
           subtitle: 'Version, terms, privacy policy',
           icon: Icons.info_outline,
-          onTap: () => _showPlaceholder(
-            context,
-            title: 'App Info',
-            message: 'Barivara resident app. Version details coming soon.',
-          ),
+          onTap: () => Navigator.of(context).pushNamed(AppRoutes.appInfo),
         ),
         _SettingsTile(
           title: 'Logout',
@@ -813,19 +797,20 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -916,6 +901,7 @@ class _IssueTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final subtitle = <String>[
       'Status: ${issue.status.name}',
       'Priority: ${issue.priority.name}',
@@ -929,7 +915,7 @@ class _IssueTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: Colors.white,
+        color: scheme.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -938,12 +924,12 @@ class _IssueTile extends StatelessWidget {
           const SizedBox(height: 6),
           Text(issue.description),
           const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: Colors.black54)),
+          Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
           if (issue.attachments.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
               'Attachments: ${issue.attachments.length}',
-              style: const TextStyle(color: Colors.black54),
+              style: TextStyle(color: scheme.onSurfaceVariant),
             ),
           ],
         ],
@@ -989,6 +975,7 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
@@ -997,11 +984,11 @@ class _SettingsTile extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24),
-          color: Colors.white,
+          color: scheme.surface,
         ),
         child: Row(
           children: [
-            Icon(icon, color: const Color(0xFF0A3DFF)),
+            Icon(icon, color: scheme.primary),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -1012,7 +999,7 @@ class _SettingsTile extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                  Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
                 ],
               ),
             ),
@@ -1045,10 +1032,9 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final headerColor = isManagement
-        ? const Color(0xFF0A3DFF)
-        : const Color(0xFF1F2937);
-    final bubbleColor = isMine ? const Color(0xFFDCEBFF) : Colors.white;
+    final scheme = Theme.of(context).colorScheme;
+    final headerColor = isManagement ? scheme.primary : scheme.onSurface;
+    final bubbleColor = isMine ? scheme.primaryContainer : scheme.surface;
     final align = isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(18),
@@ -1090,7 +1076,7 @@ class _MessageBubble extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: bubbleColor,
                   borderRadius: radius,
-                  border: Border.all(color: const Color(0xFFD7DFEC)),
+                  border: Border.all(color: scheme.outlineVariant),
                 ),
                 child: Column(
                   crossAxisAlignment: align,
@@ -1099,9 +1085,9 @@ class _MessageBubble extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       _formatMessageTime(createdAt),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
-                        color: Colors.black54,
+                        color: scheme.onSurfaceVariant,
                       ),
                     ),
                   ],

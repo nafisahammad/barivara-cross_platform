@@ -5,6 +5,7 @@ class AdminConsoleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Admin Console')),
       body: Padding(
@@ -19,15 +20,15 @@ class AdminConsoleScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(24),
-                  color: const Color(0xFF0B0E14),
+                  color: scheme.surfaceVariant,
                 ),
-                child: const TextField(
+                child: TextField(
                   maxLines: null,
                   expands: true,
-                  style: TextStyle(color: Colors.white),
+                  style: TextStyle(color: scheme.onSurface),
                   decoration: InputDecoration(
                     hintText: '{\n  "collection": "users",\n  "id": "..."\n}',
-                    hintStyle: TextStyle(color: Colors.white54),
+                    hintStyle: TextStyle(color: scheme.onSurfaceVariant),
                     border: InputBorder.none,
                   ),
                 ),

@@ -68,4 +68,21 @@ class PaymentService {
     });
     return payments;
   }
+
+  Future<List<Payment>> getPaymentsForBuilding(String buildingId) async {
+    final query = await _db.payments
+        .where('buildingId', isEqualTo: buildingId)
+        .get();
+    final payments = query.docs
+        .map((doc) => Payment.fromMap(doc.id, doc.data()))
+        .toList();
+    payments.sort((a, b) {
+      final aDate =
+          a.paidAt ?? a.dueDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate =
+          b.paidAt ?? b.dueDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+    return payments;
+  }
 }

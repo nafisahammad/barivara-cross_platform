@@ -81,13 +81,14 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(32),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: scheme.surface,
           borderRadius: BorderRadius.circular(32),
           boxShadow: const [
             BoxShadow(
@@ -101,7 +102,7 @@ class _HeroCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 26,
-              backgroundColor: const Color(0xFF0A3DFF),
+              backgroundColor: scheme.primary,
               child: Icon(icon, color: Colors.white),
             ),
             const SizedBox(width: 16),
@@ -117,7 +118,7 @@ class _HeroCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                  Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
                 ],
               ),
             ),

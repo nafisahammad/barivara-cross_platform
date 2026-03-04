@@ -5,6 +5,7 @@ class CommunityScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(title: const Text('Community Board')),
       body: Column(
@@ -72,12 +73,13 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: isHost ? const Color(0xFFE6F4FF) : Colors.white,
+        color: isHost ? scheme.primaryContainer : scheme.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,7 +88,7 @@ class _MessageBubble extends StatelessWidget {
             '$author • $flat',
             style: TextStyle(
               fontWeight: FontWeight.w800,
-              color: isHost ? const Color(0xFF0A3DFF) : Colors.black,
+              color: isHost ? scheme.primary : scheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
