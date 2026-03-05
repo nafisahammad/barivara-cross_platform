@@ -6,6 +6,7 @@ import '../../models/community_message.dart';
 import '../../models/enums.dart';
 import '../../models/flat.dart';
 import '../../models/issue.dart';
+import '../../models/payment.dart';
 import '../../routes.dart';
 import '../../services/auth_service.dart';
 import '../../services/building_service.dart';
@@ -201,7 +202,17 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
     );
     final pendingRequests = await ResidentService.instance
         .getPendingRequestsForBuilding(buildingId);
-    return _HostAssetsData(flats: flats, pendingRequests: pendingRequests);
+    final payments = await PaymentService.instance.getPaymentsForBuilding(
+      buildingId,
+    );
+    final pendingPayments = payments
+        .where((payment) => payment.status == PaymentStatus.pendingApproval)
+        .toList();
+    return _HostAssetsData(
+      flats: flats,
+      pendingRequests: pendingRequests,
+      pendingPayments: pendingPayments,
+    );
   }
 
   Future<void> _approveRequest(PendingAccessRequest request) async {
@@ -245,6 +256,69 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
     }
   }
 
+  Future<_PaymentMeta> _loadPaymentMeta(Payment payment) async {
+    final flat = await BuildingService.instance.getFlatById(payment.flatId);
+    final resident = await ResidentService.instance.getApprovedResidentForFlat(
+      payment.flatId,
+    );
+    return _PaymentMeta(
+      flatNumber: flat?.flatNumber ?? payment.flatId,
+      residentName: resident?.user.name,
+      residentEmail: resident?.user.email,
+    );
+  }
+
+  Future<void> _handlePaymentAction(
+    BuildContext context,
+    Payment payment,
+    PaymentStatus status,
+  ) async {
+    try {
+      await PaymentService.instance.updatePaymentStatus(
+        paymentId: payment.id,
+        status: status,
+      );
+      if (!mounted) return;
+      final message = status == PaymentStatus.confirmed
+          ? 'Payment confirmed.'
+          : 'Payment rejected.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      setState(() => _reloadKey++);
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
+  Widget _buildPaymentTile(BuildContext context, Payment payment) {
+    return FutureBuilder<_PaymentMeta>(
+      future: _loadPaymentMeta(payment),
+      builder: (context, snapshot) {
+        final meta = snapshot.data;
+        final flatLabel = meta?.flatNumber ?? payment.flatId;
+        final residentLabel = meta?.residentName ?? 'Resident';
+        final subtitle = [
+          residentLabel,
+          'Flat $flatLabel',
+          if (meta?.residentEmail != null) meta!.residentEmail!,
+        ].where((item) => item.isNotEmpty).join(' • ');
+        return _PaymentRequestCard(
+          title:
+              '${_paymentCategoryLabel(payment.category)} • ${_currency(payment.amount)}',
+          subtitle: subtitle,
+          onApprove: () =>
+              _handlePaymentAction(context, payment, PaymentStatus.confirmed),
+          onReject: () =>
+              _handlePaymentAction(context, payment, PaymentStatus.due),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<Building?>(
@@ -270,6 +344,7 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
             }
             final flats = data.flats;
             final pendingRequests = data.pendingRequests;
+            final pendingPayments = data.pendingPayments;
             if (flats.isEmpty) {
               return const Center(child: Text('No units found.'));
             }
@@ -305,6 +380,20 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
                         ],
                       ),
                     ),
+                  ),
+                const SizedBox(height: 16),
+                _SectionHeader(
+                  title: 'Payment Requests (${pendingPayments.length})',
+                ),
+                const SizedBox(height: 8),
+                if (pendingPayments.isEmpty)
+                  const _InfoTile(
+                    title: 'No payment requests',
+                    subtitle: 'Pending approvals will appear here.',
+                  )
+                else
+                  ...pendingPayments.map(
+                    (payment) => _buildPaymentTile(context, payment),
                   ),
                 const SizedBox(height: 16),
                 const _SectionHeader(title: 'Units'),
@@ -382,8 +471,13 @@ class _HostAssetsTabState extends State<_HostAssetsTab> {
 class _HostAssetsData {
   final List<Flat> flats;
   final List<PendingAccessRequest> pendingRequests;
+  final List<Payment> pendingPayments;
 
-  const _HostAssetsData({required this.flats, required this.pendingRequests});
+  const _HostAssetsData({
+    required this.flats,
+    required this.pendingRequests,
+    required this.pendingPayments,
+  });
 }
 
 class _HostServiceDeskTab extends StatefulWidget {
@@ -429,6 +523,7 @@ class _HostServiceDeskTabState extends State<_HostServiceDeskTab> {
       residentEmail: resident?.user.email,
     );
   }
+
 
   Future<void> _assignIssue(BuildContext context, Issue issue) async {
     final nameController = TextEditingController(text: issue.assigneeName ?? '');
@@ -584,77 +679,77 @@ class _HostServiceDeskTabState extends State<_HostServiceDeskTab> {
         if (buildingId == null) {
           return const Center(child: Text('No building found yet.'));
         }
-          return StreamBuilder<List<Issue>>(
-            stream: IssueService.instance.streamIssuesForBuilding(buildingId),
-            builder: (context, stream) {
-              if (stream.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final issues = _filterIssues(stream.data ?? const <Issue>[]);
-              final activeIssues = issues
-                  .where(
-                    (issue) =>
-                        issue.status == IssueStatus.open ||
-                        issue.status == IssueStatus.inProgress,
+        return StreamBuilder<List<Issue>>(
+          stream: IssueService.instance.streamIssuesForBuilding(buildingId),
+          builder: (context, stream) {
+            if (stream.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            final issues = _filterIssues(stream.data ?? const <Issue>[]);
+            final activeIssues = issues
+                .where(
+                  (issue) =>
+                      issue.status == IssueStatus.open ||
+                      issue.status == IssueStatus.inProgress,
+                )
+                .toList();
+            final solvedIssues = issues
+                .where(
+                  (issue) =>
+                      issue.status == IssueStatus.resolved ||
+                      issue.status == IssueStatus.closed,
+                )
+                .toList();
+            if (activeIssues.isEmpty && solvedIssues.isEmpty) {
+              return const Center(child: Text('No tickets yet.'));
+            }
+            return ListView(
+              padding: const EdgeInsets.all(24),
+              children: [
+                _SearchAndFilterBar(
+                  searchController: _searchController,
+                  priority: _priorityFilter,
+                  status: _statusFilter,
+                  onSearchChanged: (_) => setState(() {}),
+                  onPriorityChanged: (value) {
+                    setState(() => _priorityFilter = value);
+                  },
+                  onStatusChanged: (value) {
+                    setState(() => _statusFilter = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                _SectionHeader(
+                  title: 'Active Tickets (${activeIssues.length})',
+                ),
+                const SizedBox(height: 12),
+                if (activeIssues.isEmpty)
+                  const _InfoTile(
+                    title: 'All clear',
+                    subtitle: 'No active tickets right now.',
                   )
-                  .toList();
-              final solvedIssues = issues
-                  .where(
-                    (issue) =>
-                        issue.status == IssueStatus.resolved ||
-                        issue.status == IssueStatus.closed,
+                else
+                  ...activeIssues.map(
+                    (issue) => _buildIssueTile(context, issue),
+                  ),
+                const SizedBox(height: 20),
+                _SectionHeader(
+                  title: 'Solved Tickets (${solvedIssues.length})',
+                ),
+                const SizedBox(height: 12),
+                if (solvedIssues.isEmpty)
+                  const _InfoTile(
+                    title: 'Nothing solved yet',
+                    subtitle: 'Resolved tickets will show up here.',
                   )
-                  .toList();
-              if (activeIssues.isEmpty && solvedIssues.isEmpty) {
-                return const Center(child: Text('No tickets yet.'));
-              }
-              return ListView(
-                padding: const EdgeInsets.all(24),
-                children: [
-                  _SearchAndFilterBar(
-                    searchController: _searchController,
-                    priority: _priorityFilter,
-                    status: _statusFilter,
-                    onSearchChanged: (_) => setState(() {}),
-                    onPriorityChanged: (value) {
-                      setState(() => _priorityFilter = value);
-                    },
-                    onStatusChanged: (value) {
-                      setState(() => _statusFilter = value);
-                    },
+                else
+                  ...solvedIssues.map(
+                    (issue) => _buildIssueTile(context, issue),
                   ),
-                  const SizedBox(height: 16),
-                  _SectionHeader(
-                    title: 'Active Tickets (${activeIssues.length})',
-                  ),
-                  const SizedBox(height: 12),
-                  if (activeIssues.isEmpty)
-                    const _InfoTile(
-                      title: 'All clear',
-                      subtitle: 'No active tickets right now.',
-                    )
-                  else
-                    ...activeIssues.map(
-                      (issue) => _buildIssueTile(context, issue),
-                    ),
-                  const SizedBox(height: 20),
-                  _SectionHeader(
-                    title: 'Solved Tickets (${solvedIssues.length})',
-                  ),
-                  const SizedBox(height: 12),
-                  if (solvedIssues.isEmpty)
-                    const _InfoTile(
-                      title: 'Nothing solved yet',
-                      subtitle: 'Resolved tickets will show up here.',
-                    )
-                  else
-                    ...solvedIssues.map(
-                      (issue) => _buildIssueTile(context, issue),
-                    ),
-                ],
-              );
-            },
-          );
+              ],
+            );
+          },
+        );
       },
     );
   }
@@ -682,6 +777,18 @@ class _IssueMeta {
   final String? residentEmail;
 
   const _IssueMeta({
+    required this.flatNumber,
+    this.residentName,
+    this.residentEmail,
+  });
+}
+
+class _PaymentMeta {
+  final String flatNumber;
+  final String? residentName;
+  final String? residentEmail;
+
+  const _PaymentMeta({
     required this.flatNumber,
     this.residentName,
     this.residentEmail,
@@ -1271,6 +1378,63 @@ class _IssueCard extends StatelessWidget {
   }
 }
 
+class _PaymentRequestCard extends StatelessWidget {
+  const _PaymentRequestCard({
+    required this.title,
+    required this.subtitle,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  final String title;
+  final String subtitle;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        color: scheme.surface,
+        border: Border.all(color: scheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          Text(subtitle, style: TextStyle(color: scheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onReject,
+                  child: const Text('Reject'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton(
+                  onPressed: onApprove,
+                  child: const Text('Accept'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TagChip extends StatelessWidget {
   const _TagChip({required this.label, required this.color});
 
@@ -1585,6 +1749,21 @@ String _formatMessageTime(DateTime? value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final suffix = value.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $suffix';
+}
+
+String _paymentCategoryLabel(PaymentCategory category) {
+  switch (category) {
+    case PaymentCategory.rent:
+      return 'Rent';
+    case PaymentCategory.electricity:
+      return 'Electricity';
+    case PaymentCategory.water:
+      return 'Water';
+    case PaymentCategory.gas:
+      return 'Gas';
+    case PaymentCategory.other:
+      return 'Other';
+  }
 }
 
 String _currency(double value) => 'Rs ${value.toStringAsFixed(0)}';

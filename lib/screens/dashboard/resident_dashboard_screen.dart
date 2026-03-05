@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../models/building.dart';
 import '../../models/community_message.dart';
 import '../../models/enums.dart';
 import '../../models/flat.dart';
@@ -153,6 +154,95 @@ class _ResidentAssetsTab extends StatelessWidget {
     return ResidentService.instance.getLinkForUser(userId);
   }
 
+  Future<void> _requestPayment(
+    BuildContext context,
+    ResidentLink link,
+  ) async {
+    final amountController = TextEditingController();
+    PaymentCategory category = PaymentCategory.rent;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Request payment approval'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Amount paid',
+                      hintText: 'e.g. 15000',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<PaymentCategory>(
+                    value: category,
+                    decoration: const InputDecoration(labelText: 'Category'),
+                    items: PaymentCategory.values
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text(_paymentCategoryLabel(value)),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(() => category = value);
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Send request'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+    final amount = double.tryParse(amountController.text.trim()) ?? 0;
+    if (amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid amount.')),
+      );
+      return;
+    }
+
+    try {
+      await PaymentService.instance.createPaymentRequest(
+        residentId: link.userId,
+        buildingId: link.buildingId,
+        flatId: link.flatId,
+        amount: amount,
+        category: category,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Payment request sent for approval.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<ResidentLink?>(
@@ -172,28 +262,98 @@ class _ResidentAssetsTab extends StatelessWidget {
             if (flatSnapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            if (flat == null) {
-              return const Center(child: Text('Unit information unavailable.'));
-            }
-            return ListView(
-              padding: const EdgeInsets.all(24),
-              children: [
-                const Text(
-                  'My Unit',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 12),
-                _InfoTile(
-                  title: 'Unit ${flat.flatNumber}',
-                  subtitle: flat.status == FlatStatus.occupied
-                      ? 'Occupied'
-                      : 'Pending occupancy',
-                ),
-                _InfoTile(
-                  title: 'Rent',
-                  subtitle: '${_currency(flat.rentAmount)} configured',
-                ),
-              ],
+        if (flat == null) {
+          return const Center(child: Text('Unit information unavailable.'));
+        }
+            return FutureBuilder<Building?>(
+              future: BuildingService.instance.getBuildingById(link.buildingId),
+              builder: (context, buildingSnapshot) {
+                if (buildingSnapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                final building = buildingSnapshot.data;
+                return ListView(
+                  padding: const EdgeInsets.all(24),
+                  children: [
+                    _UnitHeaderCard(
+                      flatNumber: flat.flatNumber,
+                      status: flat.status,
+                      buildingName: building?.name,
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(title: 'Overview'),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 12,
+                      children: [
+                        _StatCard(
+                          label: 'Floor',
+                          value: 'Level ${flat.floor}',
+                        ),
+                        _StatCard(
+                          label: 'Rent',
+                          value: _currency(flat.rentAmount),
+                        ),
+                        _StatCard(
+                          label: 'Approval',
+                          value: _approvalLabel(link.approvalStatus),
+                        ),
+                        _StatCard(
+                          label: 'Linked',
+                          value: _formatDate(link.createdAt),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(title: 'Unit Details'),
+                    const SizedBox(height: 12),
+                    _InfoTile(
+                      title: 'Status',
+                      subtitle: _flatStatusLabel(flat.status),
+                    ),
+                    if (building != null)
+                      _InfoTile(
+                        title: 'Building',
+                        subtitle: building.name,
+                      ),
+                    if (building != null && building.address.isNotEmpty)
+                      _InfoTile(
+                        title: 'Address',
+                        subtitle: building.address,
+                      ),
+                    if (building == null)
+                      const _InfoTile(
+                        title: 'Building',
+                        subtitle: 'Building details unavailable.',
+                      ),
+                    if ((building?.rules ?? const []).isNotEmpty)
+                      _RulesCard(rules: building!.rules),
+                    if ((building?.rules ?? const []).isEmpty)
+                      const _InfoTile(
+                        title: 'House Rules',
+                        subtitle: 'No rules added yet.',
+                      ),
+                    const SizedBox(height: 18),
+                    const _SectionTitle(title: 'Payments'),
+                    const SizedBox(height: 12),
+                    _InfoTile(
+                      title: 'Send payment request',
+                      subtitle:
+                          'Submit a paid amount for host approval and confirmation.',
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: () => _requestPayment(context, link),
+                        icon: const Icon(Icons.payments_outlined),
+                        label: const Text('Request payment approval'),
+                      ),
+                    ),
+                  ],
+                );
+              },
             );
           },
         );
@@ -817,6 +977,163 @@ class _InfoTile extends StatelessWidget {
   }
 }
 
+class _UnitHeaderCard extends StatelessWidget {
+  const _UnitHeaderCard({
+    required this.flatNumber,
+    required this.status,
+    this.buildingName,
+  });
+
+  final String flatNumber;
+  final FlatStatus status;
+  final String? buildingName;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final statusLabel = _flatStatusLabel(status);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [
+            scheme.primary,
+            scheme.primaryContainer,
+          ],
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Unit $flatNumber',
+                  style: TextStyle(
+                    color: scheme.onPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  buildingName ?? 'Resident building',
+                  style: TextStyle(
+                    color: scheme.onPrimary.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: scheme.surface.withOpacity(0.22),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              statusLabel,
+              style: TextStyle(
+                color: scheme.onPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        color: scheme.surface,
+        border: Border.all(color: scheme.outline.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: scheme.onSurfaceVariant,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RulesCard extends StatelessWidget {
+  const _RulesCard({required this.rules});
+
+  final List<String> rules;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: scheme.surface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'House Rules',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          ...rules.map(
+            (rule) => Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text('- $rule'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SearchAndFilterBar extends StatelessWidget {
   const _SearchAndFilterBar({
     required this.searchController,
@@ -1107,6 +1424,59 @@ String _formatMessageTime(DateTime? value) {
   final minute = value.minute.toString().padLeft(2, '0');
   final suffix = value.hour >= 12 ? 'PM' : 'AM';
   return '$hour:$minute $suffix';
+}
+
+String _formatDate(DateTime? value) {
+  if (value == null) return 'Not linked';
+  const months = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+  final month = months[value.month - 1];
+  return '${value.day} $month ${value.year}';
+}
+
+String _approvalLabel(ApprovalStatus status) {
+  switch (status) {
+    case ApprovalStatus.approved:
+      return 'Approved';
+    case ApprovalStatus.pending:
+      return 'Pending';
+  }
+}
+
+String _flatStatusLabel(FlatStatus status) {
+  switch (status) {
+    case FlatStatus.occupied:
+      return 'Occupied';
+    case FlatStatus.vacant:
+      return 'Vacant';
+  }
+}
+
+String _paymentCategoryLabel(PaymentCategory category) {
+  switch (category) {
+    case PaymentCategory.rent:
+      return 'Rent';
+    case PaymentCategory.electricity:
+      return 'Electricity';
+    case PaymentCategory.water:
+      return 'Water';
+    case PaymentCategory.gas:
+      return 'Gas';
+    case PaymentCategory.other:
+      return 'Other';
+  }
 }
 
 String _currency(double value) => 'Rs ${value.toStringAsFixed(0)}';

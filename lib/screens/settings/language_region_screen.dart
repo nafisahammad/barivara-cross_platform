@@ -26,7 +26,7 @@ class LanguageRegionScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _SelectionCard(
                 child: DropdownButtonFormField<String>(
-                  value: settings.language,
+                  initialValue: settings.language,
                   decoration: const InputDecoration(labelText: 'App language'),
                   items: const [
                     DropdownMenuItem(value: 'English', child: Text('English')),
@@ -46,7 +46,7 @@ class LanguageRegionScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _SelectionCard(
                 child: DropdownButtonFormField<String>(
-                  value: settings.currency,
+                  initialValue: settings.currency,
                   decoration: const InputDecoration(labelText: 'Currency'),
                   items: const [
                     DropdownMenuItem(value: 'BDT', child: Text('Bangladeshi Taka (BDT)')),
@@ -61,7 +61,7 @@ class LanguageRegionScreen extends StatelessWidget {
               const SizedBox(height: 12),
               _SelectionCard(
                 child: DropdownButtonFormField<String>(
-                  value: settings.timeFormat,
+                  initialValue: settings.timeFormat,
                   decoration: const InputDecoration(labelText: 'Time format'),
                   items: const [
                     DropdownMenuItem(value: '12h', child: Text('12-hour clock')),
@@ -119,7 +119,7 @@ class _PreviewCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: scheme.surfaceVariant,
+        color: scheme.surfaceContainerHighest,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

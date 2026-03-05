@@ -155,7 +155,7 @@ class _EmptyState extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        color: scheme.surfaceVariant,
+        color: scheme.surfaceContainerHighest,
       ),
       child: Text(
         'Add a contact so emergency services can reach the right person quickly.',
