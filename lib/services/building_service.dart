@@ -93,6 +93,12 @@ class BuildingService {
     return Flat.fromMap(snapshot.id, snapshot.data()!);
   }
 
+  Future<Building?> getBuildingById(String buildingId) async {
+    final snapshot = await _db.buildings.doc(buildingId).get();
+    if (!snapshot.exists || snapshot.data() == null) return null;
+    return Building.fromMap(snapshot.id, snapshot.data()!);
+  }
+
   Future<void> updateFlat({
     required String flatId,
     required String flatNumber,

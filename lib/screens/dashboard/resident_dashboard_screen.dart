@@ -525,7 +525,7 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
                 Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
                     child: StreamBuilder<List<CommunityMessage>>(
                       stream: CommunityService.instance.streamMessages(
@@ -617,7 +617,7 @@ class _ResidentCommunityTabState extends State<_ResidentCommunityTab> {
                               ),
                               filled: true,
                               fillColor:
-                                  Theme.of(context).colorScheme.surfaceVariant,
+                                  Theme.of(context).colorScheme.surfaceContainerHighest,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(24),
                                 borderSide: BorderSide.none,

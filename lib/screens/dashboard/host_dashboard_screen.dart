@@ -785,7 +785,7 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                 Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
                     child: StreamBuilder<List<CommunityMessage>>(
                   stream: CommunityService.instance.streamMessages(buildingId),
@@ -867,7 +867,7 @@ class _HostCommunityTabState extends State<_HostCommunityTab> {
                             ),
                             filled: true,
                             fillColor:
-                                Theme.of(context).colorScheme.surfaceVariant,
+                                Theme.of(context).colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
                               borderSide: BorderSide.none,
